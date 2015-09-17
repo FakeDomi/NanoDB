@@ -49,6 +49,11 @@ namespace domi1819.NanoDB
         {
         }
 
+        public virtual string GetName()
+        {
+            return "GenericObject";
+        }
+
         static NanoDBElement()
         {
             Elements = new NanoDBElement[256];
@@ -108,6 +113,11 @@ namespace domi1819.NanoDB
                 fs.WriteByte(0x00);
             }
         }
+
+        public override string GetName()
+        {
+            return "Boolean";
+        }
     }
 
     public class ByteElement : NanoDBElement
@@ -135,6 +145,11 @@ namespace domi1819.NanoDB
         internal override void Write(object obj, FileStream fs)
         {
             fs.WriteByte((byte)obj);
+        }
+
+        public override string GetName()
+        {
+            return "Byte";
         }
     }
 
@@ -179,6 +194,11 @@ namespace domi1819.NanoDB
 
             fs.Write(data, 0, data.Length);
         }
+
+        public override string GetName()
+        {
+            return "Short";
+        }
     }
 
     public class IntElement : NanoDBElement
@@ -221,6 +241,11 @@ namespace domi1819.NanoDB
             byte[] data = new byte[] { (byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i };
 
             fs.Write(data, 0, data.Length);
+        }
+
+        public override string GetName()
+        {
+            return "Integer";
         }
     }
 
@@ -268,6 +293,11 @@ namespace domi1819.NanoDB
             byte[] data = new byte[] { (byte)(l >> 56), (byte)(l >> 48), (byte)(l >> 40), (byte)(l >> 32), (byte)(l >> 24), (byte)(l >> 16), (byte)(l >> 8), (byte)l };
 
             fs.Write(data, 0, data.Length);
+        }
+
+        public override string GetName()
+        {
+            return "Long";
         }
     }
 
@@ -336,6 +366,11 @@ namespace domi1819.NanoDB
                 fs.Seek(offset, SeekOrigin.Current);
             }
         }
+
+        public override string GetName()
+        {
+            return "String" + (this.Size - 1);
+        }
     }
 
     public class DateTimeElement : NanoDBElement
@@ -383,6 +418,11 @@ namespace domi1819.NanoDB
             byte[] data = new byte[] { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
 
             fs.Write(data, 0, data.Length);
+        }
+
+        public override string GetName()
+        {
+            return "DateTime";
         }
     }
 }
