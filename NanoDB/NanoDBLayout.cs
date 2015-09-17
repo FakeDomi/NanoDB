@@ -6,8 +6,8 @@
 
         public int[] Offsets { get; private set; }
 
-        public int LayoutSize { get { return this.LayoutElements.Length; } private set { } }
-        public int HeaderSize { get { return this.LayoutElements.Length + 2; } private set { } }
+        public int LayoutSize { get { return this.LayoutElements.Length; } }
+        public int HeaderSize { get { return this.LayoutElements.Length + 2; } }
         public int RowSize { get; private set; }
 
         public NanoDBLayout(params NanoDBElement[] layout)
@@ -15,11 +15,11 @@
             this.LayoutElements = layout;
 
             int offset = 0;
-            Offsets = new int[layout.Length];
+            this.Offsets = new int[layout.Length];
 
             for (int i = 0; i < layout.Length; i++)
             {
-                Offsets[i] = offset;
+                this.Offsets[i] = offset;
                 offset += layout[i].Size;
             }
 

@@ -7,11 +7,15 @@ namespace domi1819.NanoDB
     {
         public NanoDBLayout Layout { get; private set; }
 
-        public bool Accessible { get { return this.initialized && this.dbAccessStream != null; } set { } }
+        public NanoDBIndexAccess IndexAccess { get; private set; }
+
+        public bool Accessible { get { return this.initialized && this.dbAccessStream != null; } }
 
         public int RecommendedIndex { get; private set; }
 
-        private string path;
+        public double StorageEfficiency { get { return (double)this.emptyLines / this.totalLines; } }
+
+        private readonly string path;
         private bool initialized;
 
         private Dictionary<string, int> index;
@@ -35,9 +39,9 @@ namespace domi1819.NanoDB
 
                 if (layoutSize > 0)
                 {
-                    RecommendedIndex = fs.ReadByte();
+                    this.RecommendedIndex = fs.ReadByte();
 
-                    if (RecommendedIndex >= 0 && RecommendedIndex < layoutSize)
+                    if (this.RecommendedIndex >= 0 && this.RecommendedIndex < layoutSize)
                     {
                         byte[] layoutIDs = new byte[layoutSize];
 
@@ -77,7 +81,7 @@ namespace domi1819.NanoDB
         {
             int layoutSize = layout.LayoutElements.Length;
 
-            if (layoutSize > 0 && layoutSize < 256 && layoutIndex >= 0 && layoutIndex < layout.LayoutElements.Length)
+            if (layoutSize > 0 && layoutSize < 256 && layoutIndex < layout.LayoutElements.Length)
             {
                 using (FileStream fs = new FileStream(this.path, FileMode.OpenOrCreate, FileAccess.Write))
                 {
@@ -94,8 +98,10 @@ namespace domi1819.NanoDB
                     fs.Write(layoutIds, 0, layoutSize);
 
                     this.Layout = layout;
-                    index = new Dictionary<string, int>();
-                    initialized = true;
+                    this.index = new Dictionary<string, int>();
+                    this.indexedBy = layoutIndex;
+                    this.IndexAccess = new NanoDBIndexAccess(this.index);
+                    this.initialized = true;
 
                     return true;
                 }
@@ -114,7 +120,7 @@ namespace domi1819.NanoDB
                 {
                     StringElement indexElement = (StringElement)this.Layout.LayoutElements[layoutIndex];
 
-                    index = new Dictionary<string, int>();
+                    this.index = new Dictionary<string, int>();
 
                     int leadingBytes = this.Layout.Offsets[layoutIndex];
                     int trailingBytes = this.Layout.RowSize - leadingBytes - indexElement.Size - 1;
@@ -139,13 +145,13 @@ namespace domi1819.NanoDB
 
                                 identifier = (string)indexElement.Parse(fs);
 
-                                if (index.ContainsKey(identifier))
+                                if (this.index.ContainsKey(identifier))
                                 {
                                     hasDuplicates = true;
                                 }
                                 else
                                 {
-                                    index[identifier] = totalLines;
+                                    this.index[identifier] = this.totalLines;
                                 }
 
                                 if (trailingBytes > 0)
@@ -164,11 +170,12 @@ namespace domi1819.NanoDB
                                 this.emptyLines++;
                             }
 
-                            totalLines++;
+                            this.totalLines++;
                         }
                     }
 
                     this.indexedBy = layoutIndex;
+                    this.IndexAccess = new NanoDBIndexAccess(this.index);
 
                     if (hasDuplicates)
                     {
@@ -216,9 +223,9 @@ namespace domi1819.NanoDB
                     byte[] data = new byte[this.Layout.RowSize];
                     data[0] = NanoDBConstants.LineFlagActive;
 
-                    string key = objects[indexedBy] as string;
+                    string key = objects[this.indexedBy] as string;
 
-                    if (key != null && !index.ContainsKey(key))
+                    if (key != null && !this.index.ContainsKey(key))
                     {
                         int position = 1;
                         NanoDBElement element;
@@ -241,8 +248,8 @@ namespace domi1819.NanoDB
                         this.index[key] = this.totalLines;
                         this.totalLines++;
 
-                        dbAccessStream.Seek(0, SeekOrigin.End);
-                        dbAccessStream.Write(data, 0, data.Length);
+                        this.dbAccessStream.Seek(0, SeekOrigin.End);
+                        this.dbAccessStream.Write(data, 0, data.Length);
 
                         return true;
                     }
@@ -293,12 +300,12 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (index.ContainsKey(key) && objects.Length == this.Layout.LayoutSize)
+                if (this.index.ContainsKey(key) && objects.Length == this.Layout.LayoutSize)
                 {
                     bool keyUpdateFailed = false;
                     NanoDBElement element;
 
-                    this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * index[key]) + 1, SeekOrigin.Begin);
+                    this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]) + 1, SeekOrigin.Begin);
 
                     for (int i = 0; i < objects.Length; i++)
                     {
@@ -310,7 +317,7 @@ namespace domi1819.NanoDB
                             {
                                 string newKey = (string)objects[i];
 
-                                if (!index.ContainsKey(newKey))
+                                if (!this.index.ContainsKey(newKey))
                                 {
                                     this.index[newKey] = this.index[key];
                                     this.index.Remove(key);
@@ -345,20 +352,13 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (index.ContainsKey(key))
+                if (this.index.ContainsKey(key))
                 {
-                    dbAccessStream.Seek(this.Layout.HeaderSize + index[key] * this.Layout.RowSize, SeekOrigin.Begin);
-                    
-                    if (allowRecycle)
-                    {
-                        dbAccessStream.WriteByte(NanoDBConstants.LineFlagInactive);
-                    }
-                    else
-                    {
-                        dbAccessStream.WriteByte(NanoDBConstants.LineFlagNoRecycle);
-                    }
+                    this.dbAccessStream.Seek(this.Layout.HeaderSize + this.index[key] * this.Layout.RowSize, SeekOrigin.Begin);
 
-                    index.Remove(key);
+                    this.dbAccessStream.WriteByte(allowRecycle ? NanoDBConstants.LineFlagInactive : NanoDBConstants.LineFlagNoRecycle);
+
+                    this.index.Remove(key);
 
                     return true;
                 }

@@ -44,6 +44,7 @@
     <Compile Include="NanoDBFile.cs" />
     <Compile Include="NanoDBConstants.cs" />
     <Compile Include="NanoDBElement.cs" />
+    <Compile Include="NanoDBIndexAccess.cs" />
     <Compile Include="NanoDBLayout.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

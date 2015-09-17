@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+
 namespace domi1819.NanoDB
 {
     public abstract class NanoDBElement
@@ -172,7 +173,7 @@ namespace domi1819.NanoDB
 
             fs.Read(bData, 0, bData.Length);
 
-            short[] data = new short[] { bData[0], bData[1] };
+            short[] data = { bData[0], bData[1] };
 
             return (short)(data[0] << 8 | data[1]);
         }
@@ -190,7 +191,7 @@ namespace domi1819.NanoDB
         {
             short s = (short)obj;
 
-            byte[] data = new byte[] { (byte)(s >> 8), (byte)s };
+            byte[] data = { (byte)(s >> 8), (byte)s };
 
             fs.Write(data, 0, data.Length);
         }
@@ -219,9 +220,9 @@ namespace domi1819.NanoDB
 
             fs.Read(bData, 0, bData.Length);
 
-            int[] data = new int[] { bData[0], bData[1], bData[2], bData[3] };
+            int[] data = { bData[0], bData[1], bData[2], bData[3] };
 
-            return (int)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]);
+            return data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
         }
 
         internal override void Write(object obj, byte[] data, int position)
@@ -238,7 +239,7 @@ namespace domi1819.NanoDB
         {
             int i = (int)obj;
 
-            byte[] data = new byte[] { (byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i };
+            byte[] data = { (byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i };
 
             fs.Write(data, 0, data.Length);
         }
@@ -267,9 +268,9 @@ namespace domi1819.NanoDB
 
             fs.Read(bData, 0, bData.Length);
 
-            long[] data = new long[] { bData[0], bData[1], bData[2], bData[3], bData[4], bData[5], bData[6], bData[7] };
+            long[] data = { bData[0], bData[1], bData[2], bData[3], bData[4], bData[5], bData[6], bData[7] };
 
-            return (long)(data[0] << 56 | data[1] << 48 | data[2] << 40 | data[3] << 32 | data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7]);
+            return data[0] << 56 | data[1] << 48 | data[2] << 40 | data[3] << 32 | data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
         }
 
         internal override void Write(object obj, byte[] data, int position)
@@ -290,7 +291,7 @@ namespace domi1819.NanoDB
         {
             long l = (long)obj;
 
-            byte[] data = new byte[] { (byte)(l >> 56), (byte)(l >> 48), (byte)(l >> 40), (byte)(l >> 32), (byte)(l >> 24), (byte)(l >> 16), (byte)(l >> 8), (byte)l };
+            byte[] data = { (byte)(l >> 56), (byte)(l >> 48), (byte)(l >> 40), (byte)(l >> 32), (byte)(l >> 24), (byte)(l >> 16), (byte)(l >> 8), (byte)l };
 
             fs.Write(data, 0, data.Length);
         }
@@ -415,7 +416,7 @@ namespace domi1819.NanoDB
 
             NanoDBElement.Short.Write((short)dt.Year, fs);
 
-            byte[] data = new byte[] { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
+            byte[] data = { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
 
             fs.Write(data, 0, data.Length);
         }
