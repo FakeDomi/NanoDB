@@ -20,5 +20,10 @@ namespace domi1819.NanoDB
         {
             return this.dict[key];
         }
+
+        public bool ContainsKey(string key)
+        {
+            return this.dict.ContainsKey(key);
+        }
     }
 }

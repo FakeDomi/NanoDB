@@ -50,6 +50,16 @@ namespace domi1819.NanoDB
         {
         }
 
+        public virtual object Deserialize(string str)
+        {
+            return null;
+        }
+
+        public virtual string Serialize(object obj)
+        {
+            return obj == null ? null : obj.ToString();
+        }
+
         public virtual string GetName()
         {
             return "GenericObject";
@@ -115,6 +125,11 @@ namespace domi1819.NanoDB
             }
         }
 
+        public override object Deserialize(string str)
+        {
+            return str.ToLower() == "true";
+        }
+
         public override string GetName()
         {
             return "Boolean";
@@ -146,6 +161,18 @@ namespace domi1819.NanoDB
         internal override void Write(object obj, FileStream fs)
         {
             fs.WriteByte((byte)obj);
+        }
+
+        public override object Deserialize(string str)
+        {
+            byte result;
+
+            if (byte.TryParse(str, out result))
+            {
+                return result;
+            }
+
+            return (byte)0;
         }
 
         public override string GetName()
@@ -196,6 +223,18 @@ namespace domi1819.NanoDB
             fs.Write(data, 0, data.Length);
         }
 
+        public override object Deserialize(string str)
+        {
+            short result;
+
+            if (short.TryParse(str, out result))
+            {
+                return result;
+            }
+
+            return (short)0;
+        }
+
         public override string GetName()
         {
             return "Short";
@@ -242,6 +281,18 @@ namespace domi1819.NanoDB
             byte[] data = { (byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i };
 
             fs.Write(data, 0, data.Length);
+        }
+
+        public override object Deserialize(string str)
+        {
+            int result;
+
+            if (int.TryParse(str, out result))
+            {
+                return result;
+            }
+
+            return 0;
         }
 
         public override string GetName()
@@ -294,6 +345,18 @@ namespace domi1819.NanoDB
             byte[] data = { (byte)(l >> 56), (byte)(l >> 48), (byte)(l >> 40), (byte)(l >> 32), (byte)(l >> 24), (byte)(l >> 16), (byte)(l >> 8), (byte)l };
 
             fs.Write(data, 0, data.Length);
+        }
+
+        public override object Deserialize(string str)
+        {
+            long result;
+
+            if (long.TryParse(str, out result))
+            {
+                return result;
+            }
+
+            return 0L;
         }
 
         public override string GetName()
@@ -368,6 +431,11 @@ namespace domi1819.NanoDB
             }
         }
 
+        public override object Deserialize(string str)
+        {
+            return str;
+        }
+
         public override string GetName()
         {
             return "String" + (this.Size - 1);
@@ -419,6 +487,69 @@ namespace domi1819.NanoDB
             byte[] data = { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
 
             fs.Write(data, 0, data.Length);
+        }
+
+        public override object Deserialize(string str)
+        {
+            if (str != null)
+            {
+                string[] splitBase = str.Split(' ');
+
+                if (splitBase.Length == 2)
+                {
+                    string[] splitDate = splitBase[0].Split('-');
+                    string[] splitTime = splitBase[1].Split(':');
+
+                    if (splitDate.Length == 3 && splitTime.Length == 3)
+                    {
+                        int result;
+                        int[] results = new int[5];
+
+                        if (int.TryParse(splitDate[0], out result))
+                        {
+                            results[0] = result;
+
+                            if (int.TryParse(splitDate[1], out result))
+                            {
+                                results[1] = result;
+
+                                if (int.TryParse(splitDate[2], out result))
+                                {
+                                    results[2] = result;
+
+                                    if (int.TryParse(splitTime[0], out result))
+                                    {
+                                        results[3] = result;
+
+                                        if (int.TryParse(splitTime[1], out result))
+                                        {
+                                            results[4] = result;
+
+                                            if (int.TryParse(splitTime[2], out result))
+                                            {
+                                                return new DateTime(results[0], results[1], results[2], results[3], results[4], result);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return default(DateTime);
+        }
+
+        public override string Serialize(object obj)
+        {
+            if (obj == null)
+            {
+                return null;
+            }
+
+            DateTime dt = (DateTime)obj;
+            return dt.Year + "-" + dt.Month + "-" + dt.Day + " " + dt.Hour + ":" + (dt.Minute < 10 ? "0" : "") + dt.Minute + ":" + (dt.Second < 10 ? "0" : "") + dt.Second;
         }
 
         public override string GetName()
