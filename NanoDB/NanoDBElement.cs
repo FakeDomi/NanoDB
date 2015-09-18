@@ -500,45 +500,33 @@ namespace domi1819.NanoDB
             {
                 string[] splitBase = str.Split(' ');
 
-                if (splitBase.Length == 2)
+                int year, month, day;
+                int hour = 0, minute = 0, second = 0;
+
+                string[] splitDate = splitBase[0].Split('-', '.');
+
+                if (splitDate.Length == 3)
                 {
-                    string[] splitDate = splitBase[0].Split('-');
-                    string[] splitTime = splitBase[1].Split(':');
-
-                    if (splitDate.Length == 3 && splitTime.Length == 3)
+                    if (int.TryParse(splitDate[0], out year) && int.TryParse(splitDate[1], out month) && int.TryParse(splitDate[2], out day))
                     {
-                        int result;
-                        int[] results = new int[5];
-
-                        if (int.TryParse(splitDate[0], out result))
+                        if (splitBase.Length > 1)
                         {
-                            results[0] = result;
+                            string[] splitTime = splitBase[1].Split(':');
 
-                            if (int.TryParse(splitDate[1], out result))
+                            int.TryParse(splitTime[0], out hour);
+
+                            if (splitTime.Length > 1)
                             {
-                                results[1] = result;
+                                int.TryParse(splitTime[1], out minute);
+                            }
 
-                                if (int.TryParse(splitDate[2], out result))
-                                {
-                                    results[2] = result;
-
-                                    if (int.TryParse(splitTime[0], out result))
-                                    {
-                                        results[3] = result;
-
-                                        if (int.TryParse(splitTime[1], out result))
-                                        {
-                                            results[4] = result;
-
-                                            if (int.TryParse(splitTime[2], out result))
-                                            {
-                                                return new DateTime(results[0], results[1], results[2], results[3], results[4], result);
-                                            }
-                                        }
-                                    }
-                                }
+                            if (splitTime.Length > 2)
+                            {
+                                int.TryParse(splitTime[2], out second);
                             }
                         }
+
+                        return new DateTime(year, month, day, hour, minute, second);
                     }
                 }
             }
