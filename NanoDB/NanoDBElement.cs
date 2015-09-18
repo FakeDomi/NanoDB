@@ -127,6 +127,11 @@ namespace domi1819.NanoDB
 
         public override object Deserialize(string str)
         {
+            if (str == null)
+            {
+                return false;
+            }
+
             return str.ToLower() == "true";
         }
 
