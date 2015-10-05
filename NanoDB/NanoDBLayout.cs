@@ -7,7 +7,7 @@
         public int[] Offsets { get; private set; }
 
         public int LayoutSize { get { return this.LayoutElements.Length; } }
-        public int HeaderSize { get { return this.LayoutElements.Length + 2; } }
+        public int HeaderSize { get { return this.LayoutElements.Length + 4 + this.RowSize; } }
         public int RowSize { get; private set; }
 
         public NanoDBLayout(params NanoDBElement[] layout)

@@ -25,6 +25,7 @@ namespace domi1819.NanoDB
         private int emptyLines;
 
         private FileStream dbAccessStream;
+        private object dbAccessLock = new object();
 
         public NanoDBFile(string path)
         {
@@ -35,39 +36,44 @@ namespace domi1819.NanoDB
         {
             using (FileStream fs = new FileStream(this.path, FileMode.OpenOrCreate, FileAccess.Read))
             {
-                int layoutSize = fs.ReadByte();
+                int version = fs.ReadByte();
 
-                if (layoutSize > 0)
+                if (version == NanoDBConstants.Version)
                 {
-                    this.RecommendedIndex = fs.ReadByte();
+                    int layoutSize = fs.ReadByte();
 
-                    if (this.RecommendedIndex >= 0 && this.RecommendedIndex < layoutSize)
+                    if (layoutSize > 0)
                     {
-                        byte[] layoutIDs = new byte[layoutSize];
+                        this.RecommendedIndex = fs.ReadByte();
 
-                        if (fs.Read(layoutIDs, 0, layoutSize) == layoutSize)
+                        if (this.RecommendedIndex >= 0 && this.RecommendedIndex < layoutSize)
                         {
-                            NanoDBElement[] elements = new NanoDBElement[layoutSize];
-                            NanoDBElement element;
+                            byte[] layoutIDs = new byte[layoutSize];
 
-                            for (int i = 0; i < layoutSize; i++)
+                            if (fs.Read(layoutIDs, 0, layoutSize) == layoutSize)
                             {
-                                element = NanoDBElement.Elements[layoutIDs[i]];
+                                NanoDBElement[] elements = new NanoDBElement[layoutSize];
+                                NanoDBElement element;
 
-                                if (element == null)
+                                for (int i = 0; i < layoutSize; i++)
                                 {
-                                    return false;
+                                    element = NanoDBElement.Elements[layoutIDs[i]];
+
+                                    if (element == null)
+                                    {
+                                        return false;
+                                    }
+
+                                    elements[i] = element;
                                 }
 
-                                elements[i] = element;
-                            }
+                                this.Layout = new NanoDBLayout(elements);
 
-                            this.Layout = new NanoDBLayout(elements);
-
-                            if ((fs.Length - this.Layout.HeaderSize) % this.Layout.RowSize == 0)
-                            {
-                                this.initialized = true;
-                                return true;
+                                if ((fs.Length - this.Layout.HeaderSize) % this.Layout.RowSize == 0)
+                                {
+                                    this.initialized = true;
+                                    return true;
+                                }
                             }
                         }
                     }
@@ -85,6 +91,7 @@ namespace domi1819.NanoDB
             {
                 using (FileStream fs = new FileStream(this.path, FileMode.OpenOrCreate, FileAccess.Write))
                 {
+                    fs.WriteByte((byte)NanoDBConstants.Version);
                     fs.WriteByte((byte)layoutSize);
                     fs.WriteByte(layoutIndex);
 
@@ -96,6 +103,13 @@ namespace domi1819.NanoDB
                     }
 
                     fs.Write(layoutIds, 0, layoutSize);
+                    fs.WriteByte(0x00);
+                    fs.WriteByte(NanoDBConstants.LineFlagBackup);
+
+                    for (int i = 0; i < layout.RowSize - 1; i++)
+                    {
+                        fs.WriteByte(0x00);
+                    }
 
                     this.Layout = layout;
                     this.index = new Dictionary<string, int>();
@@ -205,8 +219,11 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                this.dbAccessStream.Close();
-                this.dbAccessStream.Dispose();
+                lock (this.dbAccessLock)
+                {
+                    this.dbAccessStream.Close();
+                    this.dbAccessStream.Dispose();
+                }
 
                 return true;
             }
@@ -218,40 +235,48 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (objects.Length == this.Layout.LayoutSize)
+                lock (this.dbAccessLock)
                 {
-                    byte[] data = new byte[this.Layout.RowSize];
-                    data[0] = NanoDBConstants.LineFlagActive;
-
-                    string key = objects[this.indexedBy] as string;
-
-                    if (key != null && !this.index.ContainsKey(key))
+                    if (objects.Length == this.Layout.LayoutSize)
                     {
-                        int position = 1;
-                        NanoDBElement element;
+                        byte[] data = new byte[this.Layout.RowSize];
+                        data[0] = NanoDBConstants.LineFlagIncomplete;
 
-                        for (int i = 0; i < objects.Length; i++)
+                        string key = objects[this.indexedBy] as string;
+
+                        if (key != null && !this.index.ContainsKey(key))
                         {
-                            element = this.Layout.LayoutElements[i];
+                            int position = 1;
+                            NanoDBElement element;
 
-                            if (element.IsValidElement(objects[i]))
+                            for (int i = 0; i < objects.Length; i++)
                             {
-                                element.Write(objects[i], data, position);
-                                position += element.Size;
+                                element = this.Layout.LayoutElements[i];
+
+                                if (element.IsValidElement(objects[i]))
+                                {
+                                    element.Write(objects[i], data, position);
+                                    position += element.Size;
+                                }
+                                else
+                                {
+                                    return false;
+                                }
                             }
-                            else
-                            {
-                                return false;
-                            }
+
+                            this.index[key] = this.totalLines;
+                            this.totalLines++;
+
+                            this.dbAccessStream.Seek(0, SeekOrigin.End);
+                            long streamPos = this.dbAccessStream.Position;
+                            this.dbAccessStream.SetLength(this.dbAccessStream.Length + this.Layout.LayoutSize);
+                            this.dbAccessStream.Write(data, 0, data.Length);
+
+                            this.dbAccessStream.Seek(streamPos, SeekOrigin.Begin);
+                            this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagActive);
+
+                            return true;
                         }
-
-                        this.index[key] = this.totalLines;
-                        this.totalLines++;
-
-                        this.dbAccessStream.Seek(0, SeekOrigin.End);
-                        this.dbAccessStream.Write(data, 0, data.Length);
-
-                        return true;
                     }
                 }
             }
@@ -263,18 +288,21 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (this.index.ContainsKey(key))
+                lock (this.dbAccessLock)
                 {
-                    object[] objects = new object[this.Layout.LayoutSize];
-
-                    this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]) + 1, SeekOrigin.Begin);
-
-                    for (int i = 0; i < objects.Length; i++)
+                    if (this.index.ContainsKey(key))
                     {
-                        objects[i] = this.Layout.LayoutElements[i].Parse(this.dbAccessStream);
-                    }
+                        object[] objects = new object[this.Layout.LayoutSize];
+                        
+                        this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]) + 1, SeekOrigin.Begin);
 
-                    return objects;
+                        for (int i = 0; i < objects.Length; i++)
+                        {
+                            objects[i] = this.Layout.LayoutElements[i].Parse(this.dbAccessStream);
+                        }
+
+                        return objects;
+                    }
                 }
             }
 
@@ -285,11 +313,14 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (this.index.ContainsKey(key) && layoutIndex >= 0 && layoutIndex < this.Layout.LayoutSize)
+                lock (this.dbAccessLock)
                 {
-                    this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]) + 1 + this.Layout.Offsets[layoutIndex], SeekOrigin.Begin);
+                    if (this.index.ContainsKey(key) && layoutIndex >= 0 && layoutIndex < this.Layout.LayoutSize)
+                    {
+                        this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]) + 1 + this.Layout.Offsets[layoutIndex], SeekOrigin.Begin);
 
-                    return this.Layout.LayoutElements[layoutIndex].Parse(this.dbAccessStream);
+                        return this.Layout.LayoutElements[layoutIndex].Parse(this.dbAccessStream);
+                    }
                 }
             }
 
@@ -300,51 +331,107 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (this.index.ContainsKey(key) && objects.Length == this.Layout.LayoutSize)
+                lock (this.dbAccessLock)
                 {
-                    bool keyUpdateFailed = false;
-                    NanoDBElement element;
-
-                    this.dbAccessStream.Seek(this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]) + 1, SeekOrigin.Begin);
-
-                    for (int i = 0; i < objects.Length; i++)
+                    if (this.index.ContainsKey(key) && objects.Length == this.Layout.LayoutSize)
                     {
-                        element = this.Layout.LayoutElements[i];
+                        bool keyUpdateFailed = false;
+                        NanoDBElement element;
+                        
+                        int linePosition = this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]);
 
-                        if (element.IsValidElement(objects[i]))
+                        this.BackupLine(linePosition);
+
+                        this.dbAccessStream.Seek(linePosition, SeekOrigin.Begin);
+                        this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagCorrupt);
+
+                        for (int i = 0; i < objects.Length; i++)
                         {
-                            if (i == this.indexedBy)
+                            element = this.Layout.LayoutElements[i];
+
+                            if (element.IsValidElement(objects[i]))
                             {
-                                string newKey = (string)objects[i];
-
-                                if (!this.index.ContainsKey(newKey))
+                                if (i == this.indexedBy)
                                 {
-                                    this.index[newKey] = this.index[key];
-                                    this.index.Remove(key);
+                                    string newKey = (string)objects[i];
 
-                                    element.Write(objects[i], this.dbAccessStream);
+                                    if (!this.index.ContainsKey(newKey))
+                                    {
+                                        this.index[newKey] = this.index[key];
+                                        this.index.Remove(key);
+
+                                        element.Write(objects[i], this.dbAccessStream);
+                                    }
+                                    else
+                                    {
+                                        keyUpdateFailed = true;
+                                        this.dbAccessStream.Seek(element.Size, SeekOrigin.Current);
+                                    }
                                 }
                                 else
                                 {
-                                    keyUpdateFailed = true;
-                                    this.dbAccessStream.Seek(element.Size, SeekOrigin.Current);
+                                    element.Write(objects[i], this.dbAccessStream);
                                 }
                             }
                             else
                             {
-                                element.Write(objects[i], this.dbAccessStream);
+                                this.dbAccessStream.Seek(element.Size, SeekOrigin.Current);
+                            }
+                        }
+
+                        this.dbAccessStream.Seek(linePosition, SeekOrigin.Begin);
+                        this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagActive);
+
+                        return !keyUpdateFailed;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public bool UpdateObject(string key, int layoutIndex, object obj)
+        {
+            if (this.Accessible)
+            {
+                lock (this.dbAccessLock)
+                {
+                    if (this.index.ContainsKey(key) && layoutIndex >= 0 && layoutIndex < this.Layout.LayoutSize && this.Layout.LayoutElements[layoutIndex].IsValidElement(obj))
+                    {
+                        NanoDBElement element = this.Layout.LayoutElements[layoutIndex];
+
+                        int linePosition = this.Layout.HeaderSize + (this.Layout.RowSize * this.index[key]);
+                        int elementPosition = linePosition + 1 + this.Layout.Offsets[layoutIndex];
+
+                        this.BackupObject(elementPosition, layoutIndex);
+
+                        this.dbAccessStream.Seek(linePosition, SeekOrigin.Begin);
+                        this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagCorrupt);
+
+                        this.dbAccessStream.Seek(elementPosition, SeekOrigin.Begin);
+
+                        if (layoutIndex == this.indexedBy)
+                        {
+                            string newKey = (string)obj;
+                            if (!this.index.ContainsKey(newKey))
+                            {
+                                this.index[newKey] = this.index[key];
+                                this.index.Remove(key);
+                                element.Write(obj, this.dbAccessStream);
                             }
                         }
                         else
                         {
-                            this.dbAccessStream.Seek(element.Size, SeekOrigin.Current);
+                            element.Write(obj, this.dbAccessStream);
                         }
-                    }
 
-                    return !keyUpdateFailed;
+                        this.dbAccessStream.Seek(linePosition, SeekOrigin.Begin);
+                        this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagActive);
+
+                        return true;
+                    }
                 }
             }
-
             return false;
         }
 
@@ -352,19 +439,46 @@ namespace domi1819.NanoDB
         {
             if (this.Accessible)
             {
-                if (this.index.ContainsKey(key))
+                lock (this.dbAccessLock)
                 {
-                    this.dbAccessStream.Seek(this.Layout.HeaderSize + this.index[key] * this.Layout.RowSize, SeekOrigin.Begin);
+                    if (this.index.ContainsKey(key))
+                    {
+                        this.dbAccessStream.Seek(this.Layout.HeaderSize + this.index[key] * this.Layout.RowSize, SeekOrigin.Begin);
+                        this.dbAccessStream.WriteByte(allowRecycle ? NanoDBConstants.LineFlagInactive : NanoDBConstants.LineFlagNoRecycle);
 
-                    this.dbAccessStream.WriteByte(allowRecycle ? NanoDBConstants.LineFlagInactive : NanoDBConstants.LineFlagNoRecycle);
+                        this.index.Remove(key);
 
-                    this.index.Remove(key);
-
-                    return true;
+                        return true;
+                    }
                 }
             }
 
             return false;
+        }
+
+        private void BackupLine(long position)
+        {
+            byte[] data = new byte[this.Layout.RowSize - 1];
+            
+            this.dbAccessStream.Seek(position + 1, SeekOrigin.Begin);
+            this.dbAccessStream.Read(data, 0, data.Length);
+
+            this.dbAccessStream.Seek(this.Layout.HeaderSize - this.Layout.RowSize, SeekOrigin.Begin);
+            this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagBackup);
+            this.dbAccessStream.Write(data, 0, data.Length);
+        }
+
+        private void BackupObject(long position, int layoutIndex)
+        {
+            byte[] data = new byte[this.Layout.LayoutElements[layoutIndex].Size];
+
+            this.dbAccessStream.Seek(position, SeekOrigin.Begin);
+            this.dbAccessStream.Read(data, 0, data.Length);
+
+            this.dbAccessStream.Seek(this.Layout.HeaderSize - 1 - this.Layout.RowSize, SeekOrigin.Begin);
+            this.dbAccessStream.WriteByte((byte)layoutIndex);
+            this.dbAccessStream.WriteByte(NanoDBConstants.LineFlagBackupObject);
+            this.dbAccessStream.Write(data, 0, data.Length);
         }
     }
 }

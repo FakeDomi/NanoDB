@@ -62,7 +62,7 @@ namespace domi1819.NanoDB
 
         public virtual string GetName()
         {
-            return "GenericObject";
+            return "AbstractObject";
         }
 
         static NanoDBElement()
@@ -127,12 +127,7 @@ namespace domi1819.NanoDB
 
         public override object Deserialize(string str)
         {
-            if (str == null)
-            {
-                return false;
-            }
-
-            return str.ToLower() == "true";
+            return str != null && str.ToLower() == "true";
         }
 
         public override string GetName()
