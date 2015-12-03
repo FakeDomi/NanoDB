@@ -1,10 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace domi1819.NanoDB
 {
-    using System.Linq;
-
     public class NanoDBFile
     {
         public NanoDBLayout Layout { get; private set; }
@@ -147,15 +146,8 @@ namespace domi1819.NanoDB
                 {
                     bool sort = sortBy >= 0 && sortBy < this.Layout.LayoutSize && sortBy != indexBy && this.Layout.LayoutElements[sortBy] is StringElement;
 
-                    //StringElement indexElement = (StringElement)this.Layout.LayoutElements[indexBy];
-                    //StringElement sortElement = sort ? (StringElement)this.Layout.LayoutElements[sortBy] : null;
-
                     this.contentIndex = new Dictionary<string, NanoDBLine>();
                     this.sortIndex = sort ? new Dictionary<string, List<NanoDBLine>>() : null;
-
-                    //int leadingBytes = this.Layout.Offsets[sort ? Math.Min(indexBy, sortBy) : indexBy];
-                    //int containedBytes = sort ? this.Layout.Offsets[Math.Max(indexBy, sortBy)] - this.Layout.Offsets[Math.Min(indexBy, sortBy) + 1] : 0;
-                    //int trailingBytes = this.Layout.RowSize - 1 - leadingBytes - containedBytes - indexElement.Size - (sort ? sortElement.Size : 0);
 
                     using (FileStream fs = new FileStream(this.path, FileMode.Open, FileAccess.Read))
                     {
