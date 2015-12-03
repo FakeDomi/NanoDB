@@ -240,7 +240,7 @@ namespace domi1819.NanoDB
             {
                 lock (this.accessLock)
                 {
-                    this.accessStream = new FileStream(this.path, FileMode.Open, FileAccess.Write);
+                    this.accessStream = new FileStream(this.path, FileMode.Open, FileAccess.ReadWrite);
                 }
 
                 return true;
