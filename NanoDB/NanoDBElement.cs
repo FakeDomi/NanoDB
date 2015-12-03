@@ -9,7 +9,7 @@ namespace domi1819.NanoDB
         public byte Id { get; private set; }
         public int Size { get; private set; }
 
-        public static NanoDBElement[] Elements { get; set; }
+        public static NanoDBElements Elements { get; private set; }
 
         public static BoolElement Bool { get; private set; }
         public static ByteElement Byte { get; private set; }
@@ -32,6 +32,21 @@ namespace domi1819.NanoDB
             Elements[id] = this;
         }
 
+        public virtual string Serialize(object obj)
+        {
+            return obj == null ? null : obj.ToString();
+        }
+
+        public virtual object Deserialize(string str)
+        {
+            return null;
+        }
+
+        public virtual string GetName()
+        {
+            return "AbstractObject";
+        }
+
         internal virtual bool IsValidElement(object obj)
         {
             return false;
@@ -50,45 +65,40 @@ namespace domi1819.NanoDB
         {
         }
 
-        public virtual object Deserialize(string str)
-        {
-            return null;
-        }
-
-        public virtual string Serialize(object obj)
-        {
-            return obj == null ? null : obj.ToString();
-        }
-
-        public virtual string GetName()
-        {
-            return "AbstractObject";
-        }
-
         static NanoDBElement()
         {
-            Elements = new NanoDBElement[256];
+            Elements = new NanoDBElements(256);
 
-            Bool = new BoolElement();
-            Byte = new ByteElement();
-            Short = new ShortElement();
-            Int = new IntElement();
-            Long = new LongElement();
+            Bool = new BoolElement(0, 1);
+            Byte = new ByteElement(1, 1);
+            Short = new ShortElement(2, 2);
+            Int = new IntElement(3, 4);
+            Long = new LongElement(4, 8);
             String8 = new StringElement(32, 9);
             String16 = new StringElement(33, 17);
             String32 = new StringElement(34, 33);
             String64 = new StringElement(35, 65);
             String128 = new StringElement(36, 129);
             String256 = new StringElement(37, 257);
-            DateTime = new DateTimeElement();
+            DateTime = new DateTimeElement(128, 7);
         }
     }
 
     public class BoolElement : NanoDBElement
     {
-        internal BoolElement()
-            : base(0, 1)
+        internal BoolElement(byte id, int size)
+            : base(id, size)
         {
+        }
+
+        public override object Deserialize(string str)
+        {
+            return str != null && str.ToLower() == "true";
+        }
+
+        public override string GetName()
+        {
+            return "Boolean";
         }
 
         internal override bool IsValidElement(object obj)
@@ -124,23 +134,25 @@ namespace domi1819.NanoDB
                 fs.WriteByte(0x00);
             }
         }
-
-        public override object Deserialize(string str)
-        {
-            return str != null && str.ToLower() == "true";
-        }
-
-        public override string GetName()
-        {
-            return "Boolean";
-        }
     }
 
     public class ByteElement : NanoDBElement
     {
-        internal ByteElement()
-            : base(1, 1)
+        internal ByteElement(byte id, int size)
+            : base(id, size)
         {
+        }
+
+        public override object Deserialize(string str)
+        {
+            byte result;
+
+            return byte.TryParse(str, out result) ? result : (byte)0;
+        }
+
+        public override string GetName()
+        {
+            return "Byte";
         }
 
         internal override bool IsValidElement(object obj)
@@ -162,30 +174,25 @@ namespace domi1819.NanoDB
         {
             fs.WriteByte((byte)obj);
         }
-
-        public override object Deserialize(string str)
-        {
-            byte result;
-
-            if (byte.TryParse(str, out result))
-            {
-                return result;
-            }
-
-            return (byte)0;
-        }
-
-        public override string GetName()
-        {
-            return "Byte";
-        }
     }
 
     public class ShortElement : NanoDBElement
     {
-        internal ShortElement()
-            : base(2, 2)
+        internal ShortElement(byte id, int size)
+            : base(id, size)
         {
+        }
+
+        public override object Deserialize(string str)
+        {
+            short result;
+
+            return short.TryParse(str, out result) ? result : (short)0;
+        }
+
+        public override string GetName()
+        {
+            return "Short";
         }
 
         internal override bool IsValidElement(object obj)
@@ -193,7 +200,6 @@ namespace domi1819.NanoDB
             return obj is short;
         }
 
-        #pragma warning disable 675
         internal override object Parse(FileStream fs)
         {
             byte[] bData = new byte[2];
@@ -204,7 +210,6 @@ namespace domi1819.NanoDB
 
             return (short)(data[0] << 8 | data[1]);
         }
-        #pragma warning restore 675
 
         internal override void Write(object obj, byte[] data, int position)
         {
@@ -222,37 +227,32 @@ namespace domi1819.NanoDB
 
             fs.Write(data, 0, data.Length);
         }
-
-        public override object Deserialize(string str)
-        {
-            short result;
-
-            if (short.TryParse(str, out result))
-            {
-                return result;
-            }
-
-            return (short)0;
-        }
-
-        public override string GetName()
-        {
-            return "Short";
-        }
     }
 
     public class IntElement : NanoDBElement
     {
-        internal IntElement()
-            : base(3, 4)
+        internal IntElement(byte id, int size)
+            : base(id, size)
         {
+        }
+
+        public override object Deserialize(string str)
+        {
+            int result;
+
+            return int.TryParse(str, out result) ? result : 0;
+        }
+
+        public override string GetName()
+        {
+            return "Integer";
         }
 
         internal override bool IsValidElement(object obj)
         {
             return obj is int;
         }
-        
+
         internal override object Parse(FileStream fs)
         {
             byte[] bData = new byte[4];
@@ -282,30 +282,25 @@ namespace domi1819.NanoDB
 
             fs.Write(data, 0, data.Length);
         }
-
-        public override object Deserialize(string str)
-        {
-            int result;
-
-            if (int.TryParse(str, out result))
-            {
-                return result;
-            }
-
-            return 0;
-        }
-
-        public override string GetName()
-        {
-            return "Integer";
-        }
     }
 
     public class LongElement : NanoDBElement
     {
-        internal LongElement()
-            : base(4, 8)
+        internal LongElement(byte id, int size)
+            : base(id, size)
         {
+        }
+
+        public override object Deserialize(string str)
+        {
+            long result;
+
+            return long.TryParse(str, out result) ? result : 0L;
+        }
+
+        public override string GetName()
+        {
+            return "Long";
         }
 
         internal override bool IsValidElement(object obj)
@@ -346,23 +341,6 @@ namespace domi1819.NanoDB
 
             fs.Write(data, 0, data.Length);
         }
-
-        public override object Deserialize(string str)
-        {
-            long result;
-
-            if (long.TryParse(str, out result))
-            {
-                return result;
-            }
-
-            return 0L;
-        }
-
-        public override string GetName()
-        {
-            return "Long";
-        }
     }
 
     public class StringElement : NanoDBElement
@@ -370,6 +348,16 @@ namespace domi1819.NanoDB
         internal StringElement(byte id, int size)
             : base(id, size)
         {
+        }
+
+        public override object Deserialize(string str)
+        {
+            return str;
+        }
+
+        public override string GetName()
+        {
+            return "String" + (this.Size - 1);
         }
 
         internal override bool IsValidElement(object obj)
@@ -381,7 +369,7 @@ namespace domi1819.NanoDB
         {
             int length = fs.ReadByte();
 
-            if (length > 0)
+            if (length > 0 && length < this.Size)
             {
                 byte[] data = new byte[length];
 
@@ -407,7 +395,7 @@ namespace domi1819.NanoDB
 
             byte[] bytes = Encoding.UTF8.GetBytes(str);
 
-            for(int i = 0; i < bytes.Length; i++)
+            for (int i = 0; i < bytes.Length; i++)
             {
                 data[position + 1 + i] = bytes[i];
             }
@@ -430,63 +418,24 @@ namespace domi1819.NanoDB
                 fs.Seek(offset, SeekOrigin.Current);
             }
         }
-
-        public override object Deserialize(string str)
-        {
-            return str;
-        }
-
-        public override string GetName()
-        {
-            return "String" + (this.Size - 1);
-        }
     }
 
     public class DateTimeElement : NanoDBElement
     {
-        internal DateTimeElement()
-            : base(128, 7)
+        internal DateTimeElement(byte id, int size)
+            : base(id, size)
         {
         }
 
-        internal override bool IsValidElement(object obj)
+        public override string Serialize(object obj)
         {
-            return obj is DateTime;
-        }
+            if (obj == null)
+            {
+                return null;
+            }
 
-        internal override object Parse(FileStream fs)
-        {
-            short year = (short)NanoDBElement.Short.Parse(fs);
-
-            byte[] data = new byte[5];
-
-            fs.Read(data, 0, data.Length);
-
-            return new DateTime(year, data[0], data[1], data[2], data[3], data[4]);
-        }
-
-        internal override void Write(object obj, byte[] data, int position)
-        {
             DateTime dt = (DateTime)obj;
-
-            NanoDBElement.Short.Write((short)dt.Year, data, position);
-
-            data[position + 2] = (byte)dt.Month;
-            data[position + 3] = (byte)dt.Day;
-            data[position + 4] = (byte)dt.Hour;
-            data[position + 5] = (byte)dt.Minute;
-            data[position + 6] = (byte)dt.Second;
-        }
-
-        internal override void Write(object obj, FileStream fs)
-        {
-            DateTime dt = (DateTime)obj;
-
-            NanoDBElement.Short.Write((short)dt.Year, fs);
-
-            byte[] data = { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
-
-            fs.Write(data, 0, data.Length);
+            return dt.Year + "-" + dt.Month + "-" + dt.Day + " " + dt.Hour + ":" + (dt.Minute < 10 ? "0" : "") + dt.Minute + ":" + (dt.Second < 10 ? "0" : "") + dt.Second;
         }
 
         public override object Deserialize(string str)
@@ -495,13 +444,13 @@ namespace domi1819.NanoDB
             {
                 string[] splitBase = str.Split(' ');
 
-                int year, month, day;
                 int hour = 0, minute = 0, second = 0;
 
                 string[] splitDate = splitBase[0].Split('-', '.');
 
                 if (splitDate.Length == 3)
                 {
+                    int year, month, day;
                     if (int.TryParse(splitDate[0], out year) && int.TryParse(splitDate[1], out month) && int.TryParse(splitDate[2], out day))
                     {
                         if (splitBase.Length > 1)
@@ -529,20 +478,49 @@ namespace domi1819.NanoDB
             return default(DateTime);
         }
 
-        public override string Serialize(object obj)
-        {
-            if (obj == null)
-            {
-                return null;
-            }
-
-            DateTime dt = (DateTime)obj;
-            return dt.Year + "-" + dt.Month + "-" + dt.Day + " " + dt.Hour + ":" + (dt.Minute < 10 ? "0" : "") + dt.Minute + ":" + (dt.Second < 10 ? "0" : "") + dt.Second;
-        }
-
         public override string GetName()
         {
             return "DateTime";
+        }
+
+        internal override bool IsValidElement(object obj)
+        {
+            return obj is DateTime;
+        }
+
+        internal override object Parse(FileStream fs)
+        {
+            short year = (short)Short.Parse(fs);
+
+            byte[] data = new byte[5];
+
+            fs.Read(data, 0, data.Length);
+
+            return new DateTime(year, data[0], data[1], data[2], data[3], data[4]);
+        }
+
+        internal override void Write(object obj, byte[] data, int position)
+        {
+            DateTime dt = (DateTime)obj;
+
+            Short.Write((short)dt.Year, data, position);
+
+            data[position + 2] = (byte)dt.Month;
+            data[position + 3] = (byte)dt.Day;
+            data[position + 4] = (byte)dt.Hour;
+            data[position + 5] = (byte)dt.Minute;
+            data[position + 6] = (byte)dt.Second;
+        }
+
+        internal override void Write(object obj, FileStream fs)
+        {
+            DateTime dt = (DateTime)obj;
+
+            Short.Write((short)dt.Year, fs);
+
+            byte[] data = { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
+
+            fs.Write(data, 0, data.Length);
         }
     }
 }

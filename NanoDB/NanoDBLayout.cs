@@ -1,52 +1,82 @@
-﻿namespace domi1819.NanoDB
+﻿using System.Linq;
+
+namespace domi1819.NanoDB
 {
     public class NanoDBLayout
     {
-        public NanoDBElement[] LayoutElements { get; private set; }
-
-        public int[] Offsets { get; private set; }
+        public NanoDBElements LayoutElements { get; private set; }
 
         public int LayoutSize { get { return this.LayoutElements.Length; } }
-        public int HeaderSize { get { return this.LayoutElements.Length + 4 + this.RowSize; } }
+        public int HeaderSize { get { return this.LayoutSize + 4 + this.RowSize; } }
         public int RowSize { get; private set; }
 
-        public NanoDBLayout(params NanoDBElement[] layout)
+        internal int[] Offsets { get; private set; }
+
+        public NanoDBLayout(params NanoDBElement[] elements)
         {
-            this.LayoutElements = layout;
+            this.LayoutElements = new NanoDBElements(elements);
+            this.Offsets = new int[elements.Length];
 
             int offset = 0;
-            this.Offsets = new int[layout.Length];
 
-            for (int i = 0; i < layout.Length; i++)
+            for (int i = 0; i < elements.Length; i++)
             {
                 this.Offsets[i] = offset;
-                offset += layout[i].Size;
+                offset += elements[i].Size;
             }
 
             this.RowSize = offset + 1;
         }
 
-        public bool Compare(NanoDBLayout checkLayout)
+        public bool Compare(NanoDBLayout otherLayout)
         {
-            return this.Compare(checkLayout.LayoutElements);
+            return this.LayoutElements.Compare(otherLayout);
+        }
+    }
+
+    public class NanoDBElements
+    {
+        public int Length
+        {
+            get
+            {
+                return this.elements.Length;
+            }
         }
 
-        public bool Compare(params NanoDBElement[] checkLayout)
+        private readonly NanoDBElement[] elements;
+
+        public NanoDBElements(int length)
         {
-            if (this.LayoutElements.Length != checkLayout.Length)
+            this.elements = new NanoDBElement[length];
+        }
+
+        public NanoDBElements(NanoDBElement[] elements)
+        {
+            this.elements = elements;
+        }
+
+        public NanoDBElement this[int index]
+        {
+            get
+            {
+                return this.elements[index];
+            }
+            internal set
+            {
+                this.elements[index] = value;
+            }
+        }
+
+        public bool Compare(NanoDBLayout compareLayout)
+        {
+            if (this.elements.Length != compareLayout.LayoutElements.elements.Length)
             {
                 return false;
             }
 
-            for (int i = 0; i < checkLayout.Length; i++)
-            {
-                if (checkLayout[i].Id != this.LayoutElements[i].Id)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return !this.elements.Where((t, i) => t.Id != compareLayout.LayoutElements.elements[i].Id).Any();
         }
     }
+
 }
