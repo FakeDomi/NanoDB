@@ -8,8 +8,16 @@ namespace domi1819.NanoDB
     {
         public NanoDBLayout Layout { get; private set; }
 
-        public bool Accessible { get { return this.initialized && this.accessStream != null; } }
-        public double StorageEfficiency { get { return (double)this.emptyLines / this.totalLines; } }
+        public bool Accessible
+        {
+            get { return this.initialized && this.accessStream != null; }
+        }
+
+        public double StorageEfficiency
+        {
+            get { return (double)this.emptyLines / this.totalLines; }
+        }
+
         public bool Sorted { get; private set; }
         public int RecommendedIndex { get; private set; }
 
@@ -189,9 +197,7 @@ namespace domi1819.NanoDB
                                         }
                                         else
                                         {
-                                            List<NanoDBLine> list = new List<NanoDBLine>();
-                                            list.Add(line);
-                                            this.sortIndex[sortKey] = list;
+                                            this.sortIndex[sortKey] = new List<NanoDBLine> { line };
                                         }
                                     }
                                 }
@@ -212,7 +218,6 @@ namespace domi1819.NanoDB
                         }
 
                         this.indexedBy = indexBy;
-
                         this.sortedBy = sortBy;
                         this.Sorted = sort;
 
@@ -302,9 +307,7 @@ namespace domi1819.NanoDB
                             }
                             else
                             {
-                                List<NanoDBLine> list = new List<NanoDBLine>();
-                                list.Add(line);
-                                this.sortIndex[sortKey] = list;
+                                this.sortIndex[sortKey] = new List<NanoDBLine> { line };
                             }
                         }
 
@@ -396,9 +399,7 @@ namespace domi1819.NanoDB
                                     }
                                     else
                                     {
-                                        List<NanoDBLine> list = new List<NanoDBLine>();
-                                        list.Add(line);
-                                        this.sortIndex[newSortKey] = list;
+                                        this.sortIndex[newSortKey] = new List<NanoDBLine> { line };
                                     }
 
                                     line.SortKey = newSortKey;
@@ -472,9 +473,7 @@ namespace domi1819.NanoDB
                                     }
                                     else
                                     {
-                                        List<NanoDBLine> list = new List<NanoDBLine>();
-                                        list.Add(line);
-                                        this.sortIndex[newSortKey] = list;
+                                        this.sortIndex[newSortKey] = new List<NanoDBLine> { line };
                                     }
 
                                     line.SortKey = newSortKey;

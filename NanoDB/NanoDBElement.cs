@@ -96,8 +96,7 @@ namespace domi1819.NanoDB
 
     public class BoolElement : NanoDBElement
     {
-        internal BoolElement(byte id, int size)
-            : base(id, size)
+        internal BoolElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -148,8 +147,7 @@ namespace domi1819.NanoDB
 
     public class ByteElement : NanoDBElement
     {
-        internal ByteElement(byte id, int size)
-            : base(id, size)
+        internal ByteElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -188,8 +186,7 @@ namespace domi1819.NanoDB
 
     public class ShortElement : NanoDBElement
     {
-        internal ShortElement(byte id, int size)
-            : base(id, size)
+        internal ShortElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -212,28 +209,25 @@ namespace domi1819.NanoDB
 
         internal override object Parse(FileStream fs)
         {
-            byte[] bData = new byte[2];
+            byte[] bytes = new byte[2];
 
-            fs.Read(bData, 0, bData.Length);
+            fs.Read(bytes, 0, bytes.Length);
 
-            short[] data = { bData[0], bData[1] };
-
-            return (short)(data[0] << 8 | data[1]);
+            return (short)(bytes[0] << 8 | bytes[1]);
         }
 
         internal override void Write(object obj, byte[] data, int position)
         {
-            short s = (short)obj;
+            short value = (short)obj;
 
-            data[position] = (byte)(s >> 8);
-            data[position + 1] = (byte)s;
+            data[position] = (byte)(value >> 8);
+            data[position + 1] = (byte)value;
         }
 
         internal override void Write(object obj, FileStream fs)
         {
-            short s = (short)obj;
-
-            byte[] data = { (byte)(s >> 8), (byte)s };
+            short value = (short)obj;
+            byte[] data = { (byte)(value >> 8), (byte)value };
 
             fs.Write(data, 0, data.Length);
         }
@@ -241,8 +235,7 @@ namespace domi1819.NanoDB
 
     public class IntElement : NanoDBElement
     {
-        internal IntElement(byte id, int size)
-            : base(id, size)
+        internal IntElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -265,30 +258,27 @@ namespace domi1819.NanoDB
 
         internal override object Parse(FileStream fs)
         {
-            byte[] bData = new byte[4];
+            byte[] bytes = new byte[4];
 
-            fs.Read(bData, 0, bData.Length);
+            fs.Read(bytes, 0, bytes.Length);
 
-            int[] data = { bData[0], bData[1], bData[2], bData[3] };
-
-            return data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
+            return bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
         }
 
         internal override void Write(object obj, byte[] data, int position)
         {
-            int i = (int)obj;
+            int value = (int)obj;
 
-            data[position] = (byte)(i >> 24);
-            data[position + 1] = (byte)(i >> 16);
-            data[position + 2] = (byte)(i >> 8);
-            data[position + 3] = (byte)i;
+            data[position] = (byte)(value >> 24);
+            data[position + 1] = (byte)(value >> 16);
+            data[position + 2] = (byte)(value >> 8);
+            data[position + 3] = (byte)value;
         }
 
         internal override void Write(object obj, FileStream fs)
         {
-            int i = (int)obj;
-
-            byte[] data = { (byte)(i >> 24), (byte)(i >> 16), (byte)(i >> 8), (byte)i };
+            int value = (int)obj;
+            byte[] data = { (byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value };
 
             fs.Write(data, 0, data.Length);
         }
@@ -296,8 +286,7 @@ namespace domi1819.NanoDB
 
     public class LongElement : NanoDBElement
     {
-        internal LongElement(byte id, int size)
-            : base(id, size)
+        internal LongElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -320,34 +309,31 @@ namespace domi1819.NanoDB
 
         internal override object Parse(FileStream fs)
         {
-            byte[] bData = new byte[8];
+            byte[] bytes = new byte[8];
 
-            fs.Read(bData, 0, bData.Length);
+            fs.Read(bytes, 0, bytes.Length);
 
-            long[] data = { bData[0], bData[1], bData[2], bData[3], bData[4], bData[5], bData[6], bData[7] };
-
-            return data[0] << 56 | data[1] << 48 | data[2] << 40 | data[3] << 32 | data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7];
+            return (long)bytes[0] << 56 | (long)bytes[1] << 48 | (long)bytes[2] << 40 | (long)bytes[3] << 32 | (long)bytes[4] << 24 | (long)bytes[5] << 16 | (long)bytes[6] << 8 | bytes[7];
         }
 
         internal override void Write(object obj, byte[] data, int position)
         {
-            long l = (long)obj;
+            long value = (long)obj;
 
-            data[position] = (byte)(l >> 56);
-            data[position + 1] = (byte)(l >> 48);
-            data[position + 2] = (byte)(l >> 40);
-            data[position + 3] = (byte)(l >> 32);
-            data[position + 4] = (byte)(l >> 24);
-            data[position + 5] = (byte)(l >> 16);
-            data[position + 6] = (byte)(l >> 8);
-            data[position + 7] = (byte)l;
+            data[position] = (byte)(value >> 56);
+            data[position + 1] = (byte)(value >> 48);
+            data[position + 2] = (byte)(value >> 40);
+            data[position + 3] = (byte)(value >> 32);
+            data[position + 4] = (byte)(value >> 24);
+            data[position + 5] = (byte)(value >> 16);
+            data[position + 6] = (byte)(value >> 8);
+            data[position + 7] = (byte)value;
         }
 
         internal override void Write(object obj, FileStream fs)
         {
-            long l = (long)obj;
-
-            byte[] data = { (byte)(l >> 56), (byte)(l >> 48), (byte)(l >> 40), (byte)(l >> 32), (byte)(l >> 24), (byte)(l >> 16), (byte)(l >> 8), (byte)l };
+            long value = (long)obj;
+            byte[] data = { (byte)(value >> 56), (byte)(value >> 48), (byte)(value >> 40), (byte)(value >> 32), (byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value };
 
             fs.Write(data, 0, data.Length);
         }
@@ -355,8 +341,7 @@ namespace domi1819.NanoDB
 
     public class StringElement : NanoDBElement
     {
-        internal StringElement(byte id, int size)
-            : base(id, size)
+        internal StringElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -428,19 +413,13 @@ namespace domi1819.NanoDB
 
     public class DataBlobElement : NanoDBElement
     {
-        internal DataBlobElement(byte id, int size)
-            : base(id, size)
+        internal DataBlobElement(byte id, int size) : base(id, size)
         {
         }
 
         public override string Serialize(object obj)
         {
-            if (obj == null)
-            {
-                return null;
-            }
-
-            return string.Join(" ", (byte[])obj);
+            return obj == null ? null : string.Join(" ", (byte[])obj);
         }
 
         public override object Deserialize(string str)
@@ -529,8 +508,7 @@ namespace domi1819.NanoDB
 
     public class DateTimeElement : NanoDBElement
     {
-        internal DateTimeElement(byte id, int size)
-            : base(id, size)
+        internal DateTimeElement(byte id, int size) : base(id, size)
         {
         }
 
@@ -550,14 +528,13 @@ namespace domi1819.NanoDB
             if (str != null)
             {
                 string[] splitBase = str.Split(' ');
-
-                int hour = 0, minute = 0, second = 0;
-
                 string[] splitDate = splitBase[0].Split('-', '.');
 
                 if (splitDate.Length == 3)
                 {
+                    int hour = 0, minute = 0, second = 0;
                     int year, month, day;
+
                     if (int.TryParse(splitDate[0], out year) && int.TryParse(splitDate[1], out month) && int.TryParse(splitDate[2], out day))
                     {
                         if (splitBase.Length > 1)
@@ -598,7 +575,6 @@ namespace domi1819.NanoDB
         internal override object Parse(FileStream fs)
         {
             short year = (short)Short.Parse(fs);
-
             byte[] data = new byte[5];
 
             fs.Read(data, 0, data.Length);
@@ -622,10 +598,9 @@ namespace domi1819.NanoDB
         internal override void Write(object obj, FileStream fs)
         {
             DateTime dt = (DateTime)obj;
+            byte[] data = { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
 
             Short.Write((short)dt.Year, fs);
-
-            byte[] data = { (byte)dt.Month, (byte)dt.Day, (byte)dt.Hour, (byte)dt.Minute, (byte)dt.Second };
 
             fs.Write(data, 0, data.Length);
         }

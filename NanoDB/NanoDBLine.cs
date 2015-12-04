@@ -6,7 +6,11 @@
         public int LineNumber { get; private set; }
         public string Key { get; internal set; }
         public string SortKey { get; internal set; }
-        public int ElementCount { get { return this.Content.Length; } }
+
+        public int ElementCount
+        {
+            get { return this.Content.Length; }
+        }
 
         internal object[] Content { get; private set; }
 
@@ -24,14 +28,8 @@
 
         public object this[int index]
         {
-            get
-            {
-                return this.Content[index];
-            }
-            set
-            {
-                this.parent.UpdateObject(this, index, value);
-            }
+            get { return this.Content[index]; }
+            set { this.parent.UpdateObject(this, index, value); }
         }
 
         public bool SetValues(params object[] objects)

@@ -6,8 +6,16 @@ namespace domi1819.NanoDB
     {
         public NanoDBElements LayoutElements { get; private set; }
 
-        public int LayoutSize { get { return this.LayoutElements.Length; } }
-        public int HeaderSize { get { return this.LayoutSize + 4 + this.RowSize; } }
+        public int LayoutSize
+        {
+            get { return this.LayoutElements.Length; }
+        }
+
+        public int HeaderSize
+        {
+            get { return this.LayoutSize + 4 + this.RowSize; }
+        }
+
         public int RowSize { get; private set; }
 
         internal int[] Offsets { get; private set; }
@@ -38,10 +46,7 @@ namespace domi1819.NanoDB
     {
         public int Length
         {
-            get
-            {
-                return this.elements.Length;
-            }
+            get { return this.elements.Length; }
         }
 
         private readonly NanoDBElement[] elements;
@@ -58,14 +63,8 @@ namespace domi1819.NanoDB
 
         public NanoDBElement this[int index]
         {
-            get
-            {
-                return this.elements[index];
-            }
-            internal set
-            {
-                this.elements[index] = value;
-            }
+            get { return this.elements[index]; }
+            internal set { this.elements[index] = value; }
         }
 
         public bool Compare(NanoDBLayout compareLayout)
@@ -78,5 +77,4 @@ namespace domi1819.NanoDB
             return !this.elements.Where((t, i) => t.Id != compareLayout.LayoutElements.elements[i].Id).Any();
         }
     }
-
 }
