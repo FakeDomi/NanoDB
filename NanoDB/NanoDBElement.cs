@@ -22,6 +22,10 @@ namespace domi1819.NanoDB
         public static StringElement String64 { get; private set; }
         public static StringElement String128 { get; private set; }
         public static StringElement String256 { get; private set; }
+        public static DataBlobElement DataBlob32 { get; private set; }
+        public static DataBlobElement DataBlob64 { get; private set; }
+        public static DataBlobElement DataBlob128 { get; private set; }
+        public static DataBlobElement DataBlob256 { get; private set; }
         public static DateTimeElement DateTime { get; private set; }
 
         internal NanoDBElement(byte id, int size)
@@ -80,6 +84,10 @@ namespace domi1819.NanoDB
             String64 = new StringElement(35, 65);
             String128 = new StringElement(36, 129);
             String256 = new StringElement(37, 257);
+            DataBlob32 = new DataBlobElement(82, 33);
+            DataBlob64 = new DataBlobElement(83, 65);
+            DataBlob128 = new DataBlobElement(84, 129);
+            DataBlob256 = new DataBlobElement(85, 257);
             DateTime = new DateTimeElement(128, 7);
         }
     }
@@ -362,7 +370,7 @@ namespace domi1819.NanoDB
 
         internal override bool IsValidElement(object obj)
         {
-            return obj is string && Encoding.UTF8.GetByteCount((string)obj) <= this.Size - 1;
+            return obj is string && Encoding.UTF8.GetByteCount((string)obj) < this.Size;
         }
 
         internal override object Parse(FileStream fs)
@@ -371,9 +379,9 @@ namespace domi1819.NanoDB
 
             if (length > 0 && length < this.Size)
             {
-                byte[] data = new byte[length];
+                byte[] bytes = new byte[length];
 
-                int bytesRead = fs.Read(data, 0, length);
+                int bytesRead = fs.Read(bytes, 0, length);
                 int offset = this.Size - bytesRead - 1;
 
                 if (offset > 0)
@@ -381,7 +389,7 @@ namespace domi1819.NanoDB
                     fs.Seek(offset, SeekOrigin.Current);
                 }
 
-                return Encoding.UTF8.GetString(data);
+                return Encoding.UTF8.GetString(bytes);
             }
 
             fs.Seek(this.Size - 1, SeekOrigin.Current);
@@ -391,27 +399,122 @@ namespace domi1819.NanoDB
 
         internal override void Write(object obj, byte[] data, int position)
         {
-            string str = (string)obj;
+            byte[] bytes = Encoding.UTF8.GetBytes((string)obj);
 
-            byte[] bytes = Encoding.UTF8.GetBytes(str);
+            data[position] = (byte)bytes.Length;
 
             for (int i = 0; i < bytes.Length; i++)
             {
                 data[position + 1 + i] = bytes[i];
             }
-
-            data[position] = (byte)bytes.Length;
         }
 
         internal override void Write(object obj, FileStream fs)
         {
-            string str = (string)obj;
-            byte[] data = Encoding.UTF8.GetBytes(str);
+            byte[] bytes = Encoding.UTF8.GetBytes((string)obj);
+            int offset = this.Size - bytes.Length - 1;
 
-            fs.WriteByte((byte)data.Length);
-            fs.Write(data, 0, data.Length);
+            fs.WriteByte((byte)bytes.Length);
+            fs.Write(bytes, 0, bytes.Length);
 
-            int offset = this.Size - data.Length - 1;
+            if (offset > 0)
+            {
+                fs.Seek(offset, SeekOrigin.Current);
+            }
+        }
+    }
+
+    public class DataBlobElement : NanoDBElement
+    {
+        internal DataBlobElement(byte id, int size)
+            : base(id, size)
+        {
+        }
+
+        public override string Serialize(object obj)
+        {
+            if (obj == null)
+            {
+                return null;
+            }
+
+            return string.Join(",", (byte[])obj);
+        }
+
+        public override object Deserialize(string str)
+        {
+            if (str != null)
+            {
+                string[] split = str.Split(',');
+                byte[] values = new byte[Math.Min(split.Length, 256)];
+                
+                for (int i = 0; i < values.Length; i++)
+                {
+                    byte parseTemp;
+
+                    if (byte.TryParse(split[i], out parseTemp))
+                    {
+                        values[i] = parseTemp;
+                    }
+                }
+            }
+
+            return new byte[0];
+        }
+
+        public override string GetName()
+        {
+            return "DataBlob" + (this.Size - 1);
+        }
+
+        internal override bool IsValidElement(object obj)
+        {
+            return obj is byte[] && ((byte[])obj).Length < this.Size;
+        }
+
+        internal override object Parse(FileStream fs)
+        {
+            int length = fs.ReadByte();
+
+            if (length > 0 && length < this.Size)
+            {
+                byte[] values = new byte[length];
+
+                int bytesRead = fs.Read(values, 0, length);
+                int offset = this.Size - bytesRead - 1;
+
+                if (offset > 0)
+                {
+                    fs.Seek(offset, SeekOrigin.Current);
+                }
+
+                return values;
+            }
+
+            fs.Seek(this.Size - 1, SeekOrigin.Current);
+
+            return new byte[0];
+        }
+
+        internal override void Write(object obj, byte[] data, int position)
+        {
+            byte[] values = (byte[])obj;
+
+            data[position] = (byte)values.Length;
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                data[position + i + 1] = values[i];
+            }
+        }
+
+        internal override void Write(object obj, FileStream fs)
+        {
+            byte[] bytes = (byte[])obj;
+            int offset = this.Size - bytes.Length - 1;
+
+            fs.WriteByte((byte)bytes.Length);
+            fs.Write(bytes, 0, bytes.Length);
 
             if (offset > 0)
             {
