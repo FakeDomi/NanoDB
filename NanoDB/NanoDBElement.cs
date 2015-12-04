@@ -4,6 +4,8 @@ using System.Text;
 
 namespace domi1819.NanoDB
 {
+    using System.Collections.Generic;
+
     public abstract class NanoDBElement
     {
         public byte Id { get; private set; }
@@ -438,25 +440,27 @@ namespace domi1819.NanoDB
                 return null;
             }
 
-            return string.Join(",", (byte[])obj);
+            return string.Join(" ", (byte[])obj);
         }
 
         public override object Deserialize(string str)
         {
             if (str != null)
             {
-                string[] split = str.Split(',');
-                byte[] values = new byte[Math.Min(split.Length, 256)];
-                
-                for (int i = 0; i < values.Length; i++)
+                string[] split = str.Split(' ', ';', ',', '-', ':');
+                List<byte> values = new List<byte>();
+
+                for (int i = 0; i < split.Length && i < 256; i++)
                 {
                     byte parseTemp;
 
                     if (byte.TryParse(split[i], out parseTemp))
                     {
-                        values[i] = parseTemp;
+                        values.Add(parseTemp);
                     }
                 }
+
+                return values.ToArray();
             }
 
             return new byte[0];
