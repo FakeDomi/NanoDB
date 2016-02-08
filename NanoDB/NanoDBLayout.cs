@@ -4,16 +4,16 @@ namespace domi1819.NanoDB
 {
     public class NanoDBLayout
     {
-        public NanoDBElements LayoutElements { get; private set; }
+        public ReadOnlyArray<NanoDBElement> Elements { get; private set; }
 
         public int LayoutSize
         {
-            get { return this.LayoutElements.Length; }
+            get { return this.Elements.Length; }
         }
 
         public int HeaderSize
         {
-            get { return this.LayoutSize + 4 + this.RowSize; }
+            get { return this.LayoutSize + 8 + this.RowSize; }
         }
 
         public int RowSize { get; private set; }
@@ -22,7 +22,7 @@ namespace domi1819.NanoDB
 
         public NanoDBLayout(params NanoDBElement[] elements)
         {
-            this.LayoutElements = new NanoDBElements(elements);
+            this.Elements = new ReadOnlyArray<NanoDBElement>(elements);
             this.Offsets = new int[elements.Length];
 
             int offset = 0;
@@ -38,43 +38,12 @@ namespace domi1819.NanoDB
 
         public bool Compare(NanoDBLayout otherLayout)
         {
-            return this.LayoutElements.Compare(otherLayout);
-        }
-    }
-
-    public class NanoDBElements
-    {
-        public int Length
-        {
-            get { return this.elements.Length; }
-        }
-
-        private readonly NanoDBElement[] elements;
-
-        public NanoDBElements(int length)
-        {
-            this.elements = new NanoDBElement[length];
-        }
-
-        public NanoDBElements(NanoDBElement[] elements)
-        {
-            this.elements = elements;
-        }
-
-        public NanoDBElement this[int index]
-        {
-            get { return this.elements[index]; }
-            internal set { this.elements[index] = value; }
-        }
-
-        public bool Compare(NanoDBLayout compareLayout)
-        {
-            if (this.elements.Length != compareLayout.LayoutElements.elements.Length)
+            if (this.Elements.Length == otherLayout.Elements.Length)
             {
-                return false;
+                return !this.Elements.Where((t, i) => t != otherLayout.Elements[i]).Any();
             }
 
-            return !this.elements.Where((t, i) => t.Id != compareLayout.LayoutElements.elements[i].Id).Any();
+            return false;
         }
     }
 }

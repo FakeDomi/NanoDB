@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace domi1819.NanoDB
 {
@@ -10,19 +11,29 @@ namespace domi1819.NanoDB
 
         public bool Accessible
         {
-            get { return this.initialized && this.accessStream != null; }
+            get { return this.initialized && this.AccessStream != null; }
         }
 
         public double StorageEfficiency
         {
-            get { return (double)this.emptyLines / this.totalLines; }
+            get { return (double)(this.TotalLines - this.EmptyLines) / this.TotalLines; }
         }
+
+        public int TotalLines { get; private set; }
+        public int EmptyLines { get; private set; }
 
         public bool Sorted { get; private set; }
         public int RecommendedIndex { get; private set; }
 
-        private readonly string path;
+        public string Path { get; private set; }
+
+        internal int RunningTasks;
+        internal FileStream AccessStream;
+        
         private bool initialized;
+        private bool shutdown;
+
+        private NanoDBWriter writer;
 
         private Dictionary<string, NanoDBLine> contentIndex;
         private Dictionary<string, List<NanoDBLine>> sortIndex;
@@ -30,314 +41,341 @@ namespace domi1819.NanoDB
         private int indexedBy;
         private int sortedBy;
 
-        private int totalLines;
-        private int emptyLines;
-
-        private FileStream accessStream;
-        private readonly object accessLock = new object();
+        private readonly object readLock = new object();
+        private readonly object fileLock = new object();
 
         public NanoDBFile(string path)
         {
-            this.path = path;
+            this.Path = path;
         }
 
         public InitializeResult Initialize()
         {
-            using (FileStream fs = new FileStream(this.path, FileMode.OpenOrCreate, FileAccess.Read))
+            using (FileStream stream = new FileStream(this.Path, FileMode.OpenOrCreate, FileAccess.Read))
             {
-                int version = fs.ReadByte();
+                byte[] magicBytes = new byte[NanoDBConstants.MagicBytes.Length];
 
-                if (version == NanoDBConstants.Version)
+                if (stream.Read(magicBytes, 0, NanoDBConstants.MagicBytes.Length) != NanoDBConstants.MagicBytes.Length)
                 {
-                    int layoutSize = fs.ReadByte();
+                    return InitializeResult.FileEmpty;
+                }
 
-                    if (layoutSize > 0)
-                    {
-                        int recommendedIndex = fs.ReadByte();
+                int version = stream.ReadByte();
 
-                        if (recommendedIndex >= 0 && this.RecommendedIndex < layoutSize)
-                        {
-                            this.RecommendedIndex = recommendedIndex;
+                if (version != NanoDBConstants.DatabaseStructureVersion)
+                {
+                    return version > 0 ? InitializeResult.VersionMismatch : InitializeResult.FileEmpty;
+                }
 
-                            byte[] layoutIds = new byte[layoutSize];
+                int layoutSize = stream.ReadByte();
 
-                            if (fs.Read(layoutIds, 0, layoutSize) == layoutSize)
-                            {
-                                NanoDBElement[] elements = new NanoDBElement[layoutSize];
-
-                                for (int i = 0; i < layoutSize; i++)
-                                {
-                                    NanoDBElement element = NanoDBElement.Elements[layoutIds[i]];
-
-                                    if (element == null)
-                                    {
-                                        return InitializeResult.UnknownDataType;
-                                    }
-
-                                    elements[i] = element;
-                                }
-
-                                this.Layout = new NanoDBLayout(elements);
-
-                                if ((fs.Length - this.Layout.HeaderSize) % this.Layout.RowSize == 0)
-                                {
-                                    this.initialized = true;
-                                    return InitializeResult.Success;
-                                }
-
-                                return InitializeResult.FileCorrupt;
-                            }
-                        }
-                    }
-
+                if (layoutSize <= 0)
+                {
                     return InitializeResult.FileCorrupt;
                 }
 
-                return version >= 0 ? InitializeResult.VersionMismatch : InitializeResult.FileEmpty;
+                int recommendedIndex = stream.ReadByte();
+
+                if (recommendedIndex < 0 || recommendedIndex >= layoutSize)
+                {
+                    return InitializeResult.FileCorrupt;
+                }
+
+                this.RecommendedIndex = recommendedIndex;
+
+                byte[] layoutIds = new byte[layoutSize];
+
+                if (stream.Read(layoutIds, 0, layoutSize) < layoutSize)
+                {
+                    return InitializeResult.FileCorrupt;
+                }
+
+                NanoDBElement[] elements = new NanoDBElement[layoutSize];
+
+                for (int i = 0; i < layoutSize; i++)
+                {
+                    NanoDBElement element = NanoDBElement.Elements[layoutIds[i]];
+
+                    if (element == null)
+                    {
+                        return InitializeResult.UnknownDataType;
+                    }
+
+                    elements[i] = element;
+                }
+
+                this.Layout = new NanoDBLayout(elements);
+
+                if ((stream.Length - this.Layout.HeaderSize) % this.Layout.RowSize != 0)
+                {
+                    return InitializeResult.UnexpectedFileEnd;
+                }
+
+                this.initialized = true;
+
+                return InitializeResult.Success;
             }
         }
 
-        public bool CreateNew(NanoDBLayout layout, byte indexBy, int sortBy = -1)
+        public bool CreateNew(NanoDBLayout layout, int indexBy, int sortBy = -1)
         {
-            int layoutSize = layout.LayoutElements.Length;
+            int layoutSize = layout.Elements.Length;
 
-            if (layoutSize > 0 && layoutSize < 256 && indexBy < layout.LayoutElements.Length)
+            if (layoutSize <= 0 || layoutSize > 255 || indexBy >= layout.Elements.Length)
             {
-                using (FileStream fs = new FileStream(this.path, FileMode.Create, FileAccess.Write))
+                return false;
+            }
+
+            using (FileStream stream = new FileStream(this.Path, FileMode.Create, FileAccess.Write))
+            {
+                stream.Write(NanoDBConstants.MagicBytes.GetArray(), 0, NanoDBConstants.MagicBytes.Length);
+
+                stream.WriteByte((byte)NanoDBConstants.DatabaseStructureVersion);
+                stream.WriteByte((byte)layoutSize);
+                stream.WriteByte((byte)indexBy);
+
+                byte[] layoutIds = new byte[layoutSize];
+
+                for (int i = 0; i < layoutSize; i++)
                 {
-                    fs.WriteByte((byte)NanoDBConstants.Version);
-                    fs.WriteByte((byte)layoutSize);
-                    fs.WriteByte(indexBy);
+                    layoutIds[i] = layout.Elements[i].Id;
+                }
 
-                    byte[] layoutIds = new byte[layoutSize];
+                stream.Write(layoutIds, 0, layoutSize);
 
-                    for (int i = 0; i < layoutSize; i++)
-                    {
-                        layoutIds[i] = layout.LayoutElements[i].Id;
-                    }
+                stream.WriteByte(0x00);
+                stream.WriteByte(NanoDBConstants.LineFlagBackup);
 
-                    fs.Write(layoutIds, 0, layoutSize);
+                for (int i = 0; i < layout.RowSize - 1; i++)
+                {
+                    stream.WriteByte(0x00);
+                }
 
-                    fs.WriteByte(0x00);
-                    fs.WriteByte(NanoDBConstants.LineFlagBackup);
+                this.Layout = layout;
+                this.contentIndex = new Dictionary<string, NanoDBLine>();
+                this.indexedBy = indexBy;
+                this.initialized = true;
 
-                    for (int i = 0; i < layout.RowSize - 1; i++)
-                    {
-                        fs.WriteByte(0x00);
-                    }
+                if (sortBy >= 0 && sortBy < layoutSize && sortBy != indexBy)
+                {
+                    this.sortIndex = new Dictionary<string, List<NanoDBLine>>();
 
-                    this.Layout = layout;
-                    this.contentIndex = new Dictionary<string, NanoDBLine>();
-                    this.indexedBy = indexBy;
-                    this.initialized = true;
-
-                    if (sortBy >= 0 && sortBy < layoutSize && sortBy != indexBy)
-                    {
-                        this.sortIndex = new Dictionary<string, List<NanoDBLine>>();
-
-                        this.sortedBy = sortBy;
-                        this.Sorted = true;
-                    }
-
-                    return true;
+                    this.sortedBy = sortBy;
+                    this.Sorted = true;
                 }
             }
 
-            return false;
+            return true;
         }
 
         public LoadResult Load(int indexBy, int sortBy = -1)
         {
-            if (this.initialized)
+            if (!this.initialized)
             {
-                if (indexBy >= 0 && indexBy < this.Layout.LayoutSize && this.Layout.LayoutElements[indexBy] is StringElement)
-                {
-                    bool sort = sortBy >= 0 && sortBy < this.Layout.LayoutSize && sortBy != indexBy && this.Layout.LayoutElements[sortBy] is StringElement;
-
-                    this.contentIndex = new Dictionary<string, NanoDBLine>();
-                    this.sortIndex = sort ? new Dictionary<string, List<NanoDBLine>>() : null;
-
-                    using (FileStream fs = new FileStream(this.path, FileMode.Open, FileAccess.Read))
-                    {
-                        bool hasDuplicates = false;
-
-                        fs.Seek(this.Layout.HeaderSize, SeekOrigin.Current);
-
-                        while (true)
-                        {
-                            int lineFlag = fs.ReadByte();
-
-                            if (lineFlag == NanoDBConstants.LineFlagActive)
-                            {
-                                object[] objects = new object[this.Layout.LayoutSize];
-
-                                for (int i = 0; i < objects.Length; i++)
-                                {
-                                    objects[i] = this.Layout.LayoutElements[i].Parse(fs);
-                                }
-
-                                string key = (string)objects[indexBy];
-                                string sortKey = sort ? (string)objects[sortBy] : null;
-
-                                if (this.contentIndex.ContainsKey(key))
-                                {
-                                    hasDuplicates = true;
-                                }
-                                else
-                                {
-                                    NanoDBLine line = new NanoDBLine(this, NanoDBConstants.LineFlagActive, this.totalLines, key, objects);
-
-                                    this.contentIndex[key] = line;
-
-                                    if (sort)
-                                    {
-                                        if (this.sortIndex.ContainsKey(sortKey))
-                                        {
-                                            this.sortIndex[sortKey].Add(line);
-                                        }
-                                        else
-                                        {
-                                            this.sortIndex[sortKey] = new List<NanoDBLine> { line };
-                                        }
-                                    }
-                                }
-                            }
-                            else if (lineFlag == -1)
-                            {
-                                // End of file
-                                break;
-                            }
-                            else
-                            {
-                                fs.Seek(this.Layout.RowSize - 1, SeekOrigin.Current);
-
-                                this.emptyLines++;
-                            }
-
-                            this.totalLines++;
-                        }
-
-                        this.indexedBy = indexBy;
-                        this.sortedBy = sortBy;
-                        this.Sorted = sort;
-
-                        return hasDuplicates ? LoadResult.HasDuplicates : LoadResult.Okay;
-                    }
-                }
-
                 return LoadResult.NotIndexable;
             }
 
-            return LoadResult.GenericFailed;
+            if (indexBy < 0 || indexBy >= this.Layout.LayoutSize || !(this.Layout.Elements[indexBy] is StringElement))
+            {
+                return LoadResult.NotIndexable;
+            }
+
+            bool sort = sortBy >= 0 && sortBy < this.Layout.LayoutSize && sortBy != indexBy && this.Layout.Elements[sortBy] is StringElement;
+            bool hasDuplicates = false;
+
+            this.contentIndex = new Dictionary<string, NanoDBLine>();
+            this.sortIndex = sort ? new Dictionary<string, List<NanoDBLine>>() : null;
+
+            using (FileStream stream = new FileStream(this.Path, FileMode.Open, FileAccess.Read))
+            {
+                stream.Seek(this.Layout.HeaderSize, SeekOrigin.Begin);
+
+                int lineFlag = stream.ReadByte();
+
+                while (lineFlag != -1)
+                {
+                    if (lineFlag == NanoDBConstants.LineFlagActive)
+                    {
+                        object[] objects = new object[this.Layout.LayoutSize];
+
+                        for (int i = 0; i < objects.Length; i++)
+                        {
+                            objects[i] = this.Layout.Elements[i].Parse(stream);
+                        }
+
+                        string key = (string)objects[indexBy];
+                        string sortKey = sort ? (string)objects[sortBy] : null;
+
+                        if (this.contentIndex.ContainsKey(key))
+                        {
+                            hasDuplicates = true;
+                        }
+                        else
+                        {
+                            NanoDBLine line = new NanoDBLine(this, NanoDBConstants.LineFlagActive, this.TotalLines, key, objects, sortKey);
+
+                            this.contentIndex[key] = line;
+
+                            if (sort)
+                            {
+                                if (this.sortIndex.ContainsKey(sortKey))
+                                {
+                                    this.sortIndex[sortKey].Add(line);
+                                }
+                                else
+                                {
+                                    this.sortIndex[sortKey] = new List<NanoDBLine> { line };
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        stream.Seek(this.Layout.RowSize - 1, SeekOrigin.Current);
+
+                        this.EmptyLines++;
+                    }
+
+                    lineFlag = stream.ReadByte();
+                    this.TotalLines++;
+                }
+            }
+
+            this.indexedBy = indexBy;
+            this.sortedBy = sortBy;
+            this.Sorted = sort;
+
+            return hasDuplicates ? LoadResult.HasDuplicates : LoadResult.Okay;
         }
 
         public bool Bind()
         {
-            if (this.initialized && this.accessStream == null)
+            if (!this.initialized || this.AccessStream != null)
             {
-                lock (this.accessLock)
-                {
-                    this.accessStream = new FileStream(this.path, FileMode.Open, FileAccess.ReadWrite);
-                }
-
-                return true;
+                return false;
             }
 
-            return false;
+            lock (this.readLock)
+            lock (this.fileLock)
+            {
+                this.AccessStream = new FileStream(this.Path, FileMode.Open, FileAccess.ReadWrite);
+                this.writer = new NanoDBWriter(this);
+            }
+
+            return true;
         }
 
         public bool Unbind()
         {
-            if (this.Accessible)
+            if (!this.Accessible)
             {
-                lock (this.accessLock)
-                {
-                    this.accessStream.Close();
-                    this.accessStream.Dispose();
-                }
-
-                return true;
+                return false;
             }
 
-            return false;
+            this.shutdown = true;
+            this.writer.Shutdown();
+
+            int tries = 0;
+
+            while (this.RunningTasks > 0 && tries < 50)
+            {
+                Thread.Sleep(100);
+                tries++;
+            }
+
+            lock (this.readLock)
+            lock (this.fileLock)
+            {
+                this.AccessStream.Close();
+                this.AccessStream.Dispose();
+            }
+
+            return true;
         }
 
         public NanoDBLine AddLine(params object[] objects)
         {
-            if (this.Accessible && objects.Length == this.Layout.LayoutSize)
+            string key;
+
+            lock (this.readLock)
             {
-                lock (this.accessLock)
+                if (!this.Accessible || objects.Length != this.Layout.LayoutSize || this.shutdown)
                 {
-                    string key = objects[this.indexedBy] as string;
+                    return null;
+                }
 
-                    if (key != null && !this.contentIndex.ContainsKey(key))
-                    {
-                        int position = 1;
-                        byte[] data = new byte[this.Layout.RowSize];
+                this.RunningTasks++;
 
-                        data[0] = NanoDBConstants.LineFlagIncomplete;
+                key = (string)objects[this.indexedBy];
 
-                        for (int i = 0; i < objects.Length; i++)
-                        {
-                            NanoDBElement element = this.Layout.LayoutElements[i];
-
-                            if (element.IsValidElement(objects[i]))
-                            {
-                                element.Write(objects[i], data, position);
-                                position += element.Size;
-                            }
-                            else
-                            {
-                                return null;
-                            }
-                        }
-
-                        NanoDBLine line = new NanoDBLine(this, NanoDBConstants.LineFlagActive, this.totalLines, key, objects);
-
-                        this.totalLines++;
-                        this.contentIndex[key] = line;
-
-                        if (this.Sorted)
-                        {
-                            string sortKey = (string)objects[this.sortedBy];
-
-                            if (this.sortIndex.ContainsKey(sortKey))
-                            {
-                                this.sortIndex[sortKey].Add(line);
-                            }
-                            else
-                            {
-                                this.sortIndex[sortKey] = new List<NanoDBLine> { line };
-                            }
-                        }
-
-                        this.accessStream.Seek(0, SeekOrigin.End);
-
-                        long lineLocation = this.accessStream.Position;
-
-                        this.accessStream.SetLength(this.accessStream.Length + this.Layout.RowSize);
-                        this.accessStream.Write(data, 0, data.Length);
-                        this.accessStream.Seek(lineLocation, SeekOrigin.Begin);
-                        this.accessStream.WriteByte(NanoDBConstants.LineFlagActive);
-
-                        return line;
-                    }
+                if (key == null || this.contentIndex.ContainsKey(key))
+                {
+                    this.RunningTasks--;
+                    return null;
                 }
             }
 
-            return null;
+            int position = 1;
+            byte[] data = new byte[this.Layout.RowSize];
+
+            data[0] = NanoDBConstants.LineFlagIncomplete;
+
+            for (int i = 0; i < objects.Length; i++)
+            {
+                NanoDBElement element = this.Layout.Elements[i];
+
+                if (element.IsValidElement(objects[i]))
+                {
+                    element.Write(objects[i], data, position);
+                    position += element.Size;
+                }
+                else
+                {
+                    this.RunningTasks--;
+                    return null;
+                }
+            }
+
+            NanoDBLine line = new NanoDBLine(this, NanoDBConstants.LineFlagActive, this.TotalLines, key, objects);
+
+            lock (this.readLock)
+            {
+                if (!this.Accessible || this.contentIndex.ContainsKey(key))
+                {
+                    this.RunningTasks--;
+                    return null;
+                }
+
+                this.TotalLines++;
+                this.contentIndex[key] = line;
+
+                if (this.Sorted)
+                {
+                    string sortKey = (string)objects[this.sortedBy];
+
+                    if (this.sortIndex.ContainsKey(sortKey))
+                    {
+                        this.sortIndex[sortKey].Add(line);
+                    }
+                    else
+                    {
+                        this.sortIndex[sortKey] = new List<NanoDBLine> { line };
+                    }
+                }
+
+                this.writer.AddTask(new NanoDBTask { Type = TaskType.AddLine, Data = data });
+            }
+
+            return line;
         }
 
         public NanoDBLine GetLine(string key)
         {
-            if (this.Accessible)
+            lock (this.readLock)
             {
-                lock (this.accessLock)
+                if (this.Accessible && this.contentIndex.ContainsKey(key))
                 {
-                    if (this.contentIndex.ContainsKey(key))
-                    {
-                        return this.contentIndex[key];
-                    }
+                    return this.contentIndex[key];
                 }
             }
 
@@ -346,197 +384,167 @@ namespace domi1819.NanoDB
 
         public bool UpdateLine(NanoDBLine line, params object[] objects)
         {
-            if (this.Accessible)
+            lock (this.readLock)
             {
-                lock (this.accessLock)
+                if (!this.Accessible || !this.contentIndex.ContainsKey(line.Key) || objects.Length != this.Layout.LayoutSize || this.shutdown)
                 {
-                    string key = line.Key;
+                    return false;
+                }
 
-                    if (this.contentIndex.ContainsKey(key) && objects.Length == this.Layout.LayoutSize)
+                this.RunningTasks++;
+
+                int position = 1;
+                byte[] data = new byte[this.Layout.RowSize];
+
+                data[0] = NanoDBConstants.LineFlagCorrupt;
+
+                for (int i = 0; i < objects.Length; i++)
+                {
+                    NanoDBElement element = this.Layout.Elements[i];
+
+                    if (element.IsValidElement(objects[i]))
                     {
-                        bool keyUpdateSuccess = false;
-                        long linePosition = this.Layout.HeaderSize + ((long)this.Layout.RowSize * line.LineNumber);
-
-                        this.BackupLine(linePosition);
-
-                        this.accessStream.Seek(linePosition, SeekOrigin.Begin);
-                        this.accessStream.WriteByte(NanoDBConstants.LineFlagCorrupt);
-
-                        for (int i = 0; i < objects.Length; i++)
+                        if (i == this.indexedBy)
                         {
-                            NanoDBElement element = this.Layout.LayoutElements[i];
+                            string newKey = (string)objects[i];
 
-                            if (element.IsValidElement(objects[i]))
+                            if (newKey != line.Key && this.contentIndex.ContainsKey(newKey))
                             {
-                                if (i == this.indexedBy)
-                                {
-                                    string newKey = (string)objects[i];
+                                this.RunningTasks--;
+                                return false;
+                            }
 
-                                    if (this.contentIndex.ContainsKey(newKey))
-                                    {
-                                        // TODO
-                                        this.accessStream.Seek(element.Size, SeekOrigin.Current);
-                                    }
-                                    else
-                                    {
-                                        this.contentIndex[newKey] = line;
-                                        this.contentIndex.Remove(line.Key);
-                                        line.Key = newKey;
+                            this.contentIndex.Remove(line.Key);
+                            this.contentIndex[newKey] = line;
 
-                                        element.Write(objects[i], this.accessStream);
-                                        line.Content[i] = objects[i];
+                            line.Key = newKey;
+                        }
+                        else if (this.Sorted && i == this.sortedBy)
+                        {
+                            string newSortKey = (string)objects[i];
 
-                                        keyUpdateSuccess = true;
-                                    }
-                                }
-                                else if (this.Sorted && i == this.sortedBy)
-                                {
-                                    string newSortKey = (string)objects[i];
-
-                                    if (this.sortIndex.ContainsKey(newSortKey))
-                                    {
-                                        this.sortIndex[newSortKey].Add(line);
-                                    }
-                                    else
-                                    {
-                                        this.sortIndex[newSortKey] = new List<NanoDBLine> { line };
-                                    }
-
-                                    line.SortKey = newSortKey;
-                                    line.Content[i] = objects[i];
-                                }
-                                else
-                                {
-                                    element.Write(objects[i], this.accessStream);
-
-                                    line.Content[i] = objects[i];
-                                }
+                            if (this.sortIndex.ContainsKey(newSortKey))
+                            {
+                                this.sortIndex[newSortKey].Add(line);
                             }
                             else
                             {
-                                // TODO: More detailed output
-                                this.accessStream.Seek(element.Size, SeekOrigin.Current);
+                                this.sortIndex[newSortKey] = new List<NanoDBLine> { line };
                             }
+
+                            this.sortIndex[line.SortKey].Remove(line);
+
+                            line.SortKey = newSortKey;
                         }
 
-                        this.accessStream.Seek(linePosition, SeekOrigin.Begin);
-                        this.accessStream.WriteByte(NanoDBConstants.LineFlagActive);
+                        element.Write(objects[i], data, position);
+                        position += element.Size;
 
-                        return keyUpdateSuccess;
+                        line.Content[i] = objects[i];
                     }
                 }
+
+                this.writer.AddTask(new NanoDBTask { Type = TaskType.UpdateLine, LineNumber = line.LineNumber, Data = data });
             }
 
-            return false;
+            return true;
         }
 
         public bool UpdateObject(NanoDBLine line, int layoutIndex, object obj)
         {
-            if (this.Accessible)
+            lock (this.readLock)
             {
-                lock (this.accessLock)
+                if (!this.Accessible || !this.contentIndex.ContainsKey(line.Key) || layoutIndex < 0 || layoutIndex >= this.Layout.LayoutSize || this.shutdown)
                 {
-                    string key = line.Key;
-
-                    if (this.contentIndex.ContainsKey(key) && layoutIndex >= 0 && layoutIndex < this.Layout.LayoutSize)
-                    {
-                        NanoDBElement element = this.Layout.LayoutElements[layoutIndex];
-
-                        if (element.IsValidElement(obj))
-                        {
-                            long linePosition = this.Layout.HeaderSize + ((long)this.Layout.RowSize * line.LineNumber);
-                            long elementPosition = linePosition + 1 + this.Layout.Offsets[layoutIndex];
-
-                            if (layoutIndex == this.indexedBy)
-                            {
-                                string newKey = (string)obj;
-
-                                if (this.contentIndex.ContainsKey(newKey))
-                                {
-                                    // TODO: More detailed output
-                                    return false;
-                                }
-
-                                this.contentIndex[newKey] = line;
-                                this.contentIndex.Remove(key);
-                                line.Key = newKey;
-                            }
-                            else
-                            {
-                                if (this.Sorted && layoutIndex == this.sortedBy)
-                                {
-                                    string newSortKey = (string)obj;
-
-                                    if (this.sortIndex.ContainsKey(newSortKey))
-                                    {
-                                        this.sortIndex[newSortKey].Add(line);
-                                    }
-                                    else
-                                    {
-                                        this.sortIndex[newSortKey] = new List<NanoDBLine> { line };
-                                    }
-
-                                    line.SortKey = newSortKey;
-                                }
-                            }
-
-                            element.Write(obj, this.accessStream);
-                            line.Content[layoutIndex] = obj;
-
-                            this.BackupObject(elementPosition, layoutIndex);
-
-                            this.accessStream.Seek(linePosition, SeekOrigin.Begin);
-                            this.accessStream.WriteByte(NanoDBConstants.LineFlagCorrupt);
-
-                            this.accessStream.Seek(elementPosition, SeekOrigin.Begin);
-
-                            this.accessStream.Seek(linePosition, SeekOrigin.Begin);
-                            this.accessStream.WriteByte(NanoDBConstants.LineFlagActive);
-
-                            return true;
-                        }
-                    }
+                    return false;
                 }
+
+                this.RunningTasks++;
+
+                NanoDBElement element = this.Layout.Elements[layoutIndex];
+
+                if (!element.IsValidElement(obj))
+                {
+                    this.RunningTasks--;
+                    return false;
+                }
+
+                if (layoutIndex == this.indexedBy)
+                {
+                    string newKey = (string)obj;
+
+                    if (this.contentIndex.ContainsKey(newKey))
+                    {
+                        this.RunningTasks--;
+                        return false;
+                    }
+
+                    this.contentIndex[newKey] = line;
+                    this.contentIndex.Remove(line.Key);
+
+                    line.Key = newKey;
+                }
+                else if (this.Sorted && layoutIndex == this.sortedBy)
+                {
+                    string newSortKey = (string)obj;
+
+                    if (this.sortIndex.ContainsKey(newSortKey))
+                    {
+                        this.sortIndex[newSortKey].Add(line);
+                    }
+                    else
+                    {
+                        this.sortIndex[newSortKey] = new List<NanoDBLine> { line };
+                    }
+
+                    this.sortIndex[line.SortKey].Remove(line);
+
+                    line.SortKey = newSortKey;
+                }
+
+                line.Content[layoutIndex] = obj;
+
+                byte[] data = new byte[element.Size];
+                element.Write(obj, data, 0);
+
+                this.writer.AddTask(new NanoDBTask { Type = TaskType.UpdateObject, LineNumber = line.LineNumber, Data = data, LayoutIndex = layoutIndex });
             }
 
-            return false;
+            return true;
         }
 
         public bool RemoveLine(NanoDBLine line, bool allowRecycle = true)
         {
-            if (this.Accessible)
+            byte lineFlag = allowRecycle ? NanoDBConstants.LineFlagInactive : NanoDBConstants.LineFlagNoRecycle;
+
+            lock (this.readLock)
             {
-                lock (this.accessLock)
+                if (!this.Accessible || !this.contentIndex.ContainsKey(line.Key) || this.shutdown)
                 {
-                    string key = line.Key;
+                    return false;
+                }
 
-                    if (this.contentIndex.ContainsKey(key))
+                this.RunningTasks++;
+
+                this.contentIndex.Remove(line.Key);
+                this.EmptyLines++;
+
+                if (this.Sorted)
+                {
+                    string sortKey = line.SortKey;
+
+                    if (this.sortIndex.ContainsKey(sortKey))
                     {
-                        byte lineFlag = allowRecycle ? NanoDBConstants.LineFlagInactive : NanoDBConstants.LineFlagNoRecycle;
-
-                        this.accessStream.Seek(this.Layout.HeaderSize + this.contentIndex[key].LineNumber * this.Layout.RowSize, SeekOrigin.Begin);
-                        this.accessStream.WriteByte(lineFlag);
-
-                        this.contentIndex.Remove(key);
-
-                        if (this.Sorted)
-                        {
-                            string sortKey = line.SortKey;
-
-                            if (this.sortIndex.ContainsKey(sortKey))
-                            {
-                                this.sortIndex[sortKey].Remove(line);
-                            }
-                        }
-
-                        line.LineFlag = lineFlag;
-
-                        return true;
+                        this.sortIndex[sortKey].Remove(line);
                     }
                 }
-            }
 
-            return false;
+                line.LineFlag = lineFlag;
+
+                this.writer.AddTask(new NanoDBTask { Type = TaskType.RemoveLine, LineNumber = line.LineNumber, LineFlag = lineFlag });
+            }
+            
+            return true;
         }
 
         public List<string> GetAllKeys()
@@ -547,36 +555,6 @@ namespace domi1819.NanoDB
         public bool ContainsKey(string key)
         {
             return this.contentIndex.ContainsKey(key);
-        }
-
-        public List<NanoDBLine> GetSortedLines(string sortKey)
-        {
-            return this.Sorted ? this.sortIndex.ContainsKey(sortKey) ? new List<NanoDBLine>(this.sortIndex[sortKey]) : new List<NanoDBLine>() : null;
-        }
-
-        private void BackupLine(long position)
-        {
-            byte[] data = new byte[this.Layout.RowSize - 1];
-
-            this.accessStream.Seek(position + 1, SeekOrigin.Begin);
-            this.accessStream.Read(data, 0, data.Length);
-
-            this.accessStream.Seek(this.Layout.HeaderSize - this.Layout.RowSize, SeekOrigin.Begin);
-            this.accessStream.WriteByte(NanoDBConstants.LineFlagBackup);
-            this.accessStream.Write(data, 0, data.Length);
-        }
-
-        private void BackupObject(long position, int layoutIndex)
-        {
-            byte[] data = new byte[this.Layout.LayoutElements[layoutIndex].Size];
-
-            this.accessStream.Seek(position, SeekOrigin.Begin);
-            this.accessStream.Read(data, 0, data.Length);
-
-            this.accessStream.Seek(this.Layout.HeaderSize - 1 - this.Layout.RowSize, SeekOrigin.Begin);
-            this.accessStream.WriteByte((byte)layoutIndex);
-            this.accessStream.WriteByte(NanoDBConstants.LineFlagBackupObject);
-            this.accessStream.Write(data, 0, data.Length);
         }
     }
 }

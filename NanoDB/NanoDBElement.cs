@@ -1,17 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
 namespace domi1819.NanoDB
 {
-    using System.Collections.Generic;
-
     public abstract class NanoDBElement
     {
-        public byte Id { get; private set; }
-        public int Size { get; private set; }
-
-        public static NanoDBElements Elements { get; private set; }
+        public static ReadOnlyArray<NanoDBElement> Elements { get; private set; }
 
         public static BoolElement Bool { get; private set; }
         public static ByteElement Byte { get; private set; }
@@ -24,11 +20,16 @@ namespace domi1819.NanoDB
         public static StringElement String64 { get; private set; }
         public static StringElement String128 { get; private set; }
         public static StringElement String256 { get; private set; }
+        public static DataBlobElement DataBlob8 { get; private set; }
+        public static DataBlobElement DataBlob16 { get; private set; }
         public static DataBlobElement DataBlob32 { get; private set; }
         public static DataBlobElement DataBlob64 { get; private set; }
         public static DataBlobElement DataBlob128 { get; private set; }
         public static DataBlobElement DataBlob256 { get; private set; }
         public static DateTimeElement DateTime { get; private set; }
+
+        public byte Id { get; private set; }
+        public int Size { get; private set; }
 
         internal NanoDBElement(byte id, int size)
         {
@@ -53,7 +54,7 @@ namespace domi1819.NanoDB
             return "AbstractObject";
         }
 
-        internal virtual bool IsValidElement(object obj)
+        public virtual bool IsValidElement(object obj)
         {
             return false;
         }
@@ -73,7 +74,7 @@ namespace domi1819.NanoDB
 
         static NanoDBElement()
         {
-            Elements = new NanoDBElements(256);
+            Elements = new ReadOnlyArray<NanoDBElement>(256);
 
             Bool = new BoolElement(0, 1);
             Byte = new ByteElement(1, 1);
@@ -86,6 +87,8 @@ namespace domi1819.NanoDB
             String64 = new StringElement(35, 65);
             String128 = new StringElement(36, 129);
             String256 = new StringElement(37, 257);
+            DataBlob8 = new DataBlobElement(80, 9);
+            DataBlob16 = new DataBlobElement(81, 17);
             DataBlob32 = new DataBlobElement(82, 33);
             DataBlob64 = new DataBlobElement(83, 65);
             DataBlob128 = new DataBlobElement(84, 129);
@@ -110,7 +113,7 @@ namespace domi1819.NanoDB
             return "Boolean";
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is bool;
         }
@@ -163,7 +166,7 @@ namespace domi1819.NanoDB
             return "Byte";
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is byte;
         }
@@ -202,7 +205,7 @@ namespace domi1819.NanoDB
             return "Short";
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is short;
         }
@@ -251,7 +254,7 @@ namespace domi1819.NanoDB
             return "Integer";
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is int;
         }
@@ -302,7 +305,7 @@ namespace domi1819.NanoDB
             return "Long";
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is long;
         }
@@ -355,7 +358,7 @@ namespace domi1819.NanoDB
             return "String" + (this.Size - 1);
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is string && Encoding.UTF8.GetByteCount((string)obj) < this.Size;
         }
@@ -450,7 +453,7 @@ namespace domi1819.NanoDB
             return "DataBlob" + (this.Size - 1);
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is byte[] && ((byte[])obj).Length < this.Size;
         }
@@ -520,6 +523,7 @@ namespace domi1819.NanoDB
             }
 
             DateTime dt = (DateTime)obj;
+
             return dt.Year + "-" + dt.Month + "-" + dt.Day + " " + dt.Hour + ":" + (dt.Minute < 10 ? "0" : "") + dt.Minute + ":" + (dt.Second < 10 ? "0" : "") + dt.Second;
         }
 
@@ -567,7 +571,7 @@ namespace domi1819.NanoDB
             return "DateTime";
         }
 
-        internal override bool IsValidElement(object obj)
+        public override bool IsValidElement(object obj)
         {
             return obj is DateTime;
         }

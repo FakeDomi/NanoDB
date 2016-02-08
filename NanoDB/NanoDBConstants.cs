@@ -10,7 +10,9 @@
         public static byte LineFlagIncomplete { get; private set; }
         public static byte LineFlagCorrupt { get; private set; }
 
-        public static int Version { get; private set; }
+        public static int DatabaseStructureVersion { get; private set; }
+
+        public static ReadOnlyArray<byte> MagicBytes { get; private set; }
 
         static NanoDBConstants()
         {
@@ -22,7 +24,9 @@
             LineFlagIncomplete = 0x84;
             LineFlagCorrupt = 0x88;
 
-            Version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.Build;
+            DatabaseStructureVersion = 4;
+
+            MagicBytes = new ReadOnlyArray<byte>(new byte[] { 0x4E, 0x41, 0x4E, 0x4F });
         }
     }
 
@@ -32,14 +36,15 @@
         FileEmpty = 1,
         VersionMismatch = 2,
         FileCorrupt = 3,
-        UnknownDataType = 4
+        UnknownDataType = 4,
+        UnexpectedFileEnd = 5
     }
 
     public enum LoadResult
     {
         Okay = 0,
         HasDuplicates = 1,
-        GenericFailed = 2,
+        NotInitialized = 2,
         NotIndexable = 3
     }
 }
