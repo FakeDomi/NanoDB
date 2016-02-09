@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
@@ -8,7 +7,6 @@ namespace domi1819.NanoDB
     internal class NanoDBWriter
     {
         private bool shutdown;
-        private Thread worker;
         private readonly Queue<NanoDBTask> queue = new Queue<NanoDBTask>();
         private readonly NanoDBFile parent;
 
@@ -28,15 +26,13 @@ namespace domi1819.NanoDB
         {
             this.parent = parent;
 
-            this.worker = new Thread(this.Run);
-            this.worker.Start();
+            Thread worker = new Thread(this.Run);
+            worker.Start();
         }
 
         internal void Shutdown()
         {
             this.shutdown = true;
-
-
         }
 
         internal void AddTask(NanoDBTask task)

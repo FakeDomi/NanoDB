@@ -16,7 +16,7 @@ namespace domi1819.NanoDB
 
         public double StorageEfficiency
         {
-            get { return (double)(this.TotalLines - this.EmptyLines) / this.TotalLines; }
+            get { return this.TotalLines == 0 ? 1D : (double)(this.TotalLines - this.EmptyLines) / this.TotalLines; }
         }
 
         public int TotalLines { get; private set; }
@@ -256,10 +256,12 @@ namespace domi1819.NanoDB
             }
 
             lock (this.readLock)
-            lock (this.fileLock)
             {
-                this.AccessStream = new FileStream(this.Path, FileMode.Open, FileAccess.ReadWrite);
-                this.writer = new NanoDBWriter(this);
+                lock (this.fileLock)
+                {
+                    this.AccessStream = new FileStream(this.Path, FileMode.Open, FileAccess.ReadWrite);
+                    this.writer = new NanoDBWriter(this);
+                }
             }
 
             return true;
@@ -284,10 +286,12 @@ namespace domi1819.NanoDB
             }
 
             lock (this.readLock)
-            lock (this.fileLock)
             {
-                this.AccessStream.Close();
-                this.AccessStream.Dispose();
+                lock (this.fileLock)
+                {
+                    this.AccessStream.Close();
+                    this.AccessStream.Dispose();
+                }
             }
 
             return true;
