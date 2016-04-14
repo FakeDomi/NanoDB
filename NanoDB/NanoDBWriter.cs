@@ -108,7 +108,7 @@ namespace domi1819.NanoDB
                             break;
                     }
 
-                    this.parent.RunningTasks--;
+                    Interlocked.Decrement(ref this.parent.RunningTasks);
                 }
                 else
                 {

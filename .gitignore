@@ -1,3 +1,5 @@
 /NanoDB/bin
 /NanoDB/obj
+/TestApp/bin
+/TestApp/obj
 *.suo

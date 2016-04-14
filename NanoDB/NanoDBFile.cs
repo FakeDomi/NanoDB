@@ -277,12 +277,9 @@ namespace domi1819.NanoDB
             this.shutdown = true;
             this.writer.Shutdown();
 
-            int tries = 0;
-
-            while (this.RunningTasks > 0 && tries < 50)
+            while (this.RunningTasks > 0)
             {
                 Thread.Sleep(100);
-                tries++;
             }
 
             lock (this.readLock)
@@ -308,13 +305,13 @@ namespace domi1819.NanoDB
                     return null;
                 }
 
-                this.RunningTasks++;
+                Interlocked.Increment(ref this.RunningTasks);
 
                 key = (string)objects[this.indexedBy];
 
                 if (key == null || this.contentIndex.ContainsKey(key))
                 {
-                    this.RunningTasks--;
+                    Interlocked.Decrement(ref this.RunningTasks);
                     return null;
                 }
             }
@@ -335,7 +332,7 @@ namespace domi1819.NanoDB
                 }
                 else
                 {
-                    this.RunningTasks--;
+                    Interlocked.Decrement(ref this.RunningTasks);
                     return null;
                 }
             }
@@ -346,7 +343,7 @@ namespace domi1819.NanoDB
             {
                 if (!this.Accessible || this.contentIndex.ContainsKey(key))
                 {
-                    this.RunningTasks--;
+                    Interlocked.Decrement(ref this.RunningTasks);
                     return null;
                 }
 
@@ -395,7 +392,7 @@ namespace domi1819.NanoDB
                     return false;
                 }
 
-                this.RunningTasks++;
+                Interlocked.Increment(ref this.RunningTasks);
 
                 int position = 1;
                 byte[] data = new byte[this.Layout.RowSize];
@@ -414,7 +411,7 @@ namespace domi1819.NanoDB
 
                             if (newKey != line.Key && this.contentIndex.ContainsKey(newKey))
                             {
-                                this.RunningTasks--;
+                                Interlocked.Decrement(ref this.RunningTasks);
                                 return false;
                             }
 
@@ -463,13 +460,13 @@ namespace domi1819.NanoDB
                     return false;
                 }
 
-                this.RunningTasks++;
+                Interlocked.Increment(ref this.RunningTasks);
 
                 NanoDBElement element = this.Layout.Elements[layoutIndex];
 
                 if (!element.IsValidElement(obj))
                 {
-                    this.RunningTasks--;
+                    Interlocked.Decrement(ref this.RunningTasks);
                     return false;
                 }
 
@@ -479,7 +476,7 @@ namespace domi1819.NanoDB
 
                     if (this.contentIndex.ContainsKey(newKey))
                     {
-                        this.RunningTasks--;
+                        Interlocked.Decrement(ref this.RunningTasks);
                         return false;
                     }
 
@@ -528,7 +525,7 @@ namespace domi1819.NanoDB
                     return false;
                 }
 
-                this.RunningTasks++;
+                Interlocked.Increment(ref this.RunningTasks);
 
                 this.contentIndex.Remove(line.Key);
                 this.EmptyLines++;
