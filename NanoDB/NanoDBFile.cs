@@ -9,15 +9,9 @@ namespace domi1819.NanoDB
     {
         public NanoDBLayout Layout { get; private set; }
 
-        public bool Accessible
-        {
-            get { return this.initialized && this.AccessStream != null; }
-        }
+        public bool Accessible => this.initialized && this.AccessStream != null;
 
-        public double StorageEfficiency
-        {
-            get { return this.TotalLines == 0 ? 1D : (double)(this.TotalLines - this.EmptyLines) / this.TotalLines; }
-        }
+        public double StorageEfficiency => this.TotalLines == 0 ? 1D : (double)(this.TotalLines - this.EmptyLines) / this.TotalLines;
 
         public int TotalLines { get; private set; }
         public int EmptyLines { get; private set; }
@@ -25,7 +19,7 @@ namespace domi1819.NanoDB
         public bool Sorted { get; private set; }
         public int RecommendedIndex { get; private set; }
 
-        public string Path { get; private set; }
+        public string Path { get; }
 
         internal int RunningTasks;
         internal FileStream AccessStream;
@@ -556,6 +550,11 @@ namespace domi1819.NanoDB
         public bool ContainsKey(string key)
         {
             return this.contentIndex.ContainsKey(key);
+        }
+
+        public List<NanoDBLine> GetSortedList(string filter)
+        {
+            return this.sortIndex.ContainsKey(filter) ? this.sortIndex[filter] : null;
         }
     }
 }

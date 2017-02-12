@@ -2,17 +2,17 @@
 {
     public static class NanoDBConstants
     {
-        public static byte LineFlagActive { get; private set; }
-        public static byte LineFlagInactive { get; private set; }
-        public static byte LineFlagNoRecycle { get; private set; }
-        public static byte LineFlagBackup { get; private set; }
-        public static byte LineFlagBackupObject { get; private set; }
-        public static byte LineFlagIncomplete { get; private set; }
-        public static byte LineFlagCorrupt { get; private set; }
+        public static byte LineFlagActive { get; }
+        public static byte LineFlagInactive { get; }
+        public static byte LineFlagNoRecycle { get; }
+        public static byte LineFlagBackup { get; }
+        public static byte LineFlagBackupObject { get; }
+        public static byte LineFlagIncomplete { get; }
+        public static byte LineFlagCorrupt { get; }
 
-        public static int DatabaseStructureVersion { get; private set; }
+        public static int DatabaseStructureVersion { get; }
 
-        public static ReadOnlyArray<byte> MagicBytes { get; private set; }
+        public static ReadOnlyArray<byte> MagicBytes { get; }
 
         static NanoDBConstants()
         {

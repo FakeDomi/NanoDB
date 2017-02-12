@@ -10,15 +10,9 @@ namespace domi1819.NanoDB
         private readonly Queue<NanoDBTask> queue = new Queue<NanoDBTask>();
         private readonly NanoDBFile parent;
 
-        private FileStream AccessStream
-        {
-            get { return this.parent.AccessStream; }
-        }
+        private FileStream AccessStream => this.parent.AccessStream;
 
-        private NanoDBLayout Layout
-        {
-            get { return this.parent.Layout; }
-        }
+        private NanoDBLayout Layout => this.parent.Layout;
 
         private readonly object queueLock = new object();
 
@@ -69,6 +63,7 @@ namespace domi1819.NanoDB
 
                             this.AccessStream.Seek(lineLocation, SeekOrigin.Begin);
                             this.AccessStream.WriteByte(NanoDBConstants.LineFlagActive);
+                            this.AccessStream.Flush();
 
                             break;
                         }
@@ -83,6 +78,7 @@ namespace domi1819.NanoDB
 
                             this.AccessStream.Seek(linePosition, SeekOrigin.Begin);
                             this.AccessStream.WriteByte(NanoDBConstants.LineFlagActive);
+                            this.AccessStream.Flush();
 
                             break;
                         }
@@ -101,6 +97,7 @@ namespace domi1819.NanoDB
 
                             this.AccessStream.Seek(linePosition2, SeekOrigin.Begin);
                             this.AccessStream.WriteByte(NanoDBConstants.LineFlagActive);
+                            this.AccessStream.Flush();
 
                             break;
                         }
@@ -108,12 +105,11 @@ namespace domi1819.NanoDB
                         {
                             this.AccessStream.Seek(this.Layout.HeaderSize + task.LineNumber * this.Layout.RowSize, SeekOrigin.Begin);
                             this.AccessStream.WriteByte(task.LineFlag);
+                            this.AccessStream.Flush();
 
                             break;
                         }
                     }
-
-                    this.AccessStream.Flush();
 
                     Interlocked.Decrement(ref this.parent.RunningTasks);
                 }
@@ -134,8 +130,6 @@ namespace domi1819.NanoDB
             this.AccessStream.Seek(this.Layout.HeaderSize - this.Layout.RowSize, SeekOrigin.Begin);
             this.AccessStream.WriteByte(NanoDBConstants.LineFlagBackup);
             this.AccessStream.Write(data, 0, data.Length);
-
-            this.AccessStream.Flush();
         }
 
         private void BackupObject(long position, int layoutIndex)
@@ -149,8 +143,6 @@ namespace domi1819.NanoDB
             this.AccessStream.WriteByte((byte)layoutIndex);
             this.AccessStream.WriteByte(NanoDBConstants.LineFlagBackupObject);
             this.AccessStream.Write(data, 0, data.Length);
-
-            this.AccessStream.Flush();
         }
     }
 

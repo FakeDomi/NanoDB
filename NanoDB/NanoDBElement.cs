@@ -7,29 +7,29 @@ namespace domi1819.NanoDB
 {
     public abstract class NanoDBElement
     {
-        public static ReadOnlyArray<NanoDBElement> Elements { get; private set; }
+        public static ReadOnlyArray<NanoDBElement> Elements { get; }
 
-        public static BoolElement Bool { get; private set; }
-        public static ByteElement Byte { get; private set; }
-        public static ShortElement Short { get; private set; }
-        public static IntElement Int { get; private set; }
-        public static LongElement Long { get; private set; }
-        public static StringElement String8 { get; private set; }
-        public static StringElement String16 { get; private set; }
-        public static StringElement String32 { get; private set; }
-        public static StringElement String64 { get; private set; }
-        public static StringElement String128 { get; private set; }
-        public static StringElement String256 { get; private set; }
-        public static DataBlobElement DataBlob8 { get; private set; }
-        public static DataBlobElement DataBlob16 { get; private set; }
-        public static DataBlobElement DataBlob32 { get; private set; }
-        public static DataBlobElement DataBlob64 { get; private set; }
-        public static DataBlobElement DataBlob128 { get; private set; }
-        public static DataBlobElement DataBlob256 { get; private set; }
-        public static DateTimeElement DateTime { get; private set; }
+        public static BoolElement Bool { get; }
+        public static ByteElement Byte { get; }
+        public static ShortElement Short { get; }
+        public static IntElement Int { get; }
+        public static LongElement Long { get; }
+        public static StringElement String8 { get; }
+        public static StringElement String16 { get; }
+        public static StringElement String32 { get; }
+        public static StringElement String64 { get; }
+        public static StringElement String128 { get; }
+        public static StringElement String256 { get; }
+        public static DataBlobElement DataBlob8 { get; }
+        public static DataBlobElement DataBlob16 { get; }
+        public static DataBlobElement DataBlob32 { get; }
+        public static DataBlobElement DataBlob64 { get; }
+        public static DataBlobElement DataBlob128 { get; }
+        public static DataBlobElement DataBlob256 { get; }
+        public static DateTimeElement DateTime { get; }
 
-        public byte Id { get; private set; }
-        public int Size { get; private set; }
+        public byte Id { get; }
+        public int Size { get; }
 
         internal NanoDBElement(byte id, int size)
         {
@@ -41,7 +41,7 @@ namespace domi1819.NanoDB
 
         public virtual string Serialize(object obj)
         {
-            return obj == null ? null : obj.ToString();
+            return obj?.ToString();
         }
 
         public virtual object Deserialize(string str)
