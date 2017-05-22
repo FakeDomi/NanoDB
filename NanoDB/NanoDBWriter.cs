@@ -49,11 +49,10 @@ namespace domi1819.NanoDB
                     {
                         task = this.queue.Dequeue();
                     }
-                    
+
                     switch (task.Type)
                     {
                         case TaskType.AddLine:
-                        {
                             this.AccessStream.Seek(0, SeekOrigin.End);
 
                             long lineLocation = this.AccessStream.Position;
@@ -66,9 +65,8 @@ namespace domi1819.NanoDB
                             this.AccessStream.Flush();
 
                             break;
-                        }
+
                         case TaskType.UpdateLine:
-                        {
                             long linePosition = this.Layout.HeaderSize + ((long)this.Layout.RowSize * task.LineNumber);
 
                             this.BackupLine(linePosition);
@@ -81,9 +79,8 @@ namespace domi1819.NanoDB
                             this.AccessStream.Flush();
 
                             break;
-                        }
+
                         case TaskType.UpdateObject:
-                        {
                             long linePosition2 = this.Layout.HeaderSize + ((long)this.Layout.RowSize * task.LineNumber);
                             long elementPosition = linePosition2 + 1 + this.Layout.Offsets[task.LayoutIndex];
 
@@ -100,15 +97,13 @@ namespace domi1819.NanoDB
                             this.AccessStream.Flush();
 
                             break;
-                        }
+
                         case TaskType.RemoveLine:
-                        {
                             this.AccessStream.Seek(this.Layout.HeaderSize + task.LineNumber * this.Layout.RowSize, SeekOrigin.Begin);
                             this.AccessStream.WriteByte(task.LineFlag);
                             this.AccessStream.Flush();
 
                             break;
-                        }
                     }
 
                     Interlocked.Decrement(ref this.parent.RunningTasks);

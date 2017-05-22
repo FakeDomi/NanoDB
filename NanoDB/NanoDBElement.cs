@@ -360,7 +360,7 @@ namespace domi1819.NanoDB
 
         public override bool IsValidElement(object obj)
         {
-            return obj is string && Encoding.UTF8.GetByteCount((string)obj) < this.Size;
+            return obj is string str && Encoding.UTF8.GetByteCount(str) < this.Size;
         }
 
         internal override object Parse(FileStream fs)
@@ -455,7 +455,7 @@ namespace domi1819.NanoDB
 
         public override bool IsValidElement(object obj)
         {
-            return obj is byte[] && ((byte[])obj).Length < this.Size;
+            return obj is byte[] bytes && bytes.Length < this.Size;
         }
 
         internal override object Parse(FileStream fs)

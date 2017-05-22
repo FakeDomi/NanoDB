@@ -23,7 +23,7 @@ namespace domi1819.NanoDB
 
         internal int RunningTasks;
         internal FileStream AccessStream;
-        
+
         private bool initialized;
         private bool shutdown;
 
@@ -538,7 +538,7 @@ namespace domi1819.NanoDB
 
                 this.writer.AddTask(new NanoDBTask { Type = TaskType.RemoveLine, LineNumber = line.LineNumber, LineFlag = lineFlag });
             }
-            
+
             return true;
         }
 

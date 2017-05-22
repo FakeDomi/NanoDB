@@ -8,15 +8,9 @@ namespace domi1819.NanoDB
     {
         public ReadOnlyArray<NanoDBElement> Elements { get; private set; }
 
-        public int LayoutSize
-        {
-            get { return this.Elements.Length; }
-        }
+        public int LayoutSize => this.Elements.Length;
 
-        public int HeaderSize
-        {
-            get { return this.LayoutSize + 8 + this.RowSize; }
-        }
+        public int HeaderSize => this.LayoutSize + 8 + this.RowSize;
 
         public int RowSize { get; private set; }
 
@@ -51,10 +45,7 @@ namespace domi1819.NanoDB
 
     public class ReadOnlyArray<T> : IEnumerable<T>
     {
-        public int Length
-        {
-            get { return this.listMode ? this.list.Count : this.array.Length; }
-        }
+        public int Length => this.listMode ? this.list.Count : this.array.Length;
 
         public T this[int index]
         {

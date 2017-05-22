@@ -7,10 +7,7 @@
         public string Key { get; internal set; }
         public string SortKey { get; internal set; }
 
-        public int ElementCount
-        {
-            get { return this.Content.Length; }
-        }
+        public int ElementCount => this.Content.Length;
 
         internal object[] Content { get; private set; }
 
@@ -28,8 +25,8 @@
 
         public object this[int index]
         {
-            get { return this.Content[index]; }
-            set { this.parent.UpdateObject(this, index, value); }
+            get => this.Content[index];
+            set => this.parent.UpdateObject(this, index, value);
         }
 
         public bool SetValues(params object[] objects)
