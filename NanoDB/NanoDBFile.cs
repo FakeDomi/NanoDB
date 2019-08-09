@@ -549,7 +549,7 @@ namespace domi1819.NanoDB
 
         public bool ContainsKey(string key)
         {
-            return this.contentIndex.ContainsKey(key);
+            return key != null && this.contentIndex.ContainsKey(key);
         }
 
         public List<NanoDBLine> GetSortedList(string filter)
