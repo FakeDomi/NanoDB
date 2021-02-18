@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 
-namespace domi1819.NanoDB
+namespace Domi.NanoDB
 {
     public class NanoDBFile
     {
@@ -542,9 +541,9 @@ namespace domi1819.NanoDB
             return true;
         }
 
-        public List<string> GetAllKeys()
+        public IEnumerable<string> Keys()
         {
-            return this.contentIndex.Keys.ToList();
+            return this.contentIndex.Keys;
         }
 
         public bool ContainsKey(string key)

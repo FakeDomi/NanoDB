@@ -2,7 +2,7 @@
 using System.IO;
 using System.Threading;
 
-namespace domi1819.NanoDB
+namespace Domi.NanoDB
 {
     internal class NanoDBWriter
     {

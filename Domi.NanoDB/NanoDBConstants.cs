@@ -1,4 +1,4 @@
-﻿namespace domi1819.NanoDB
+﻿namespace Domi.NanoDB
 {
     public static class NanoDBConstants
     {

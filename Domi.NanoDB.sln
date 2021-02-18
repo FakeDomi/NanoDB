@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "domi1819.NanoDB", "NanoDB\domi1819.NanoDB.csproj", "{AA32B774-EC0F-4853-929F-F432887639BE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Domi.NanoDB", "Domi.NanoDB\Domi.NanoDB.csproj", "{AA32B774-EC0F-4853-929F-F432887639BE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

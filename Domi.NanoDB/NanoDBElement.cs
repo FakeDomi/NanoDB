@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace domi1819.NanoDB
+namespace Domi.NanoDB
 {
     public abstract class NanoDBElement
     {
